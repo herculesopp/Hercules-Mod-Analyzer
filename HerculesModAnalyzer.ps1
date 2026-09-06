@@ -38,260 +38,260 @@ $script:Config = @{
         }
     )
     ModCheatTokens = @(
-        "hellion",
-        "fastxp",
-        "noclip",
-        "itemexploit",
-        "freezeplayer",
-        "exploit",
+        "autoclicker",
         "aimassist",
-        "dqrkis",
-        "clientplayerinteractionmanageraccessor",
-        "anchor macro",
-        "doubleanchor",
-        "autototem",
-        "speed",
-        "obfuscatedauth",
-        "packspoof",
-        "esp",
-        "scaffold",
-        "cracked",
-        "gypsy",
-        "killaura",
         "aim assist",
-        "elytraswap",
-        "cracked client",
+        "autocrystal",
+        "auto crystal",
+        "autohitcrystal",
+        "autoanchor",
+        "anchor macro",
+        "anchortweaks",
+        "doubleanchor",
+        "safeanchor",
+        "airanchor",
+        "autototem",
+        "auto totem",
+        "inventorytotem",
+        "hovertotem",
         "legittotem",
-        "axespam",
-        "silentaim",
-        "licensecheckmixin",
+        "autopot",
+        "autoarmor",
+        "autoeat",
+        "automine",
+        "automace",
+        "maceswap",
         "spearswap",
         "autodoublehand",
-        "lagreach",
-        "org.chainlibs.module.impl.modules.blatant",
-        "airanchor",
-        "autoarmor",
-        "inventorytotem",
-        "dev.gambleclient",
-        "invsee",
-        "jumpreset",
-        "clientplayerentitymixim",
-        "pingspoof",
-        "fastexp",
-        "silent rotations",
-        "auto crystal",
-        "maceswap",
-        "autocrystal",
-        "webmacro",
-        "nojumpdelay",
-        "authbypass",
-        "fly",
-        "automine",
-        "autoanchor",
-        "lootyeeter",
         "shielddisabler",
-        "self destruct",
-        "walskyoptimizer",
-        "keypearl",
-        "basefinder",
-        "dev.krypton",
-        "xray",
-        "velocity",
-        "walksycrystaloptimizermod",
         "shieldbreaker",
-        "jnativehook",
-        "auto totem",
-        "automace",
-        "bypass",
-        "antiknockback",
-        "anchortweaks",
-        "ghost client",
-        "reach",
-        "catlean",
-        "org.chainlibs.module.impl.modules.crystal",
-        "autoeat",
-        "autohitcrystal",
-        "freecam",
-        "xenon",
-        "hovertotem",
-        "argon",
-        "autopot",
-        "autobreach",
-        "fakeinv",
-        "autofirework",
-        "fakelag",
-        "safeanchor",
-        "autoclicker",
-        "walksyoptimizer",
-        "phantom-refmap",
         "triggerbot",
-        "selfdestruct"
-    )
-    TokenWeights = @{
-        "ghost client" = 4
-        freezeplayer = 2
-        "self destruct" = 3
-        autototem = 3
-        fastxp = 2
-        fakeinv = 2
-        jnativehook = 3
-        "anchor macro" = 2
-        xenon = 3
-        aimassist = 3
-        fastexp = 2
-        spearswap = 2
-        walskyoptimizer = 4
-        automace = 2
-        inventorytotem = 3
-        webmacro = 2
-        nojumpdelay = 2
-        selfdestruct = 3
-        "aim assist" = 3
-        reach = 2
-        shielddisabler = 3
-        maceswap = 2
-        doubleanchor = 2
-        autoarmor = 2
-        fly = 2
-        "auto totem" = 3
-        shieldbreaker = 3
-        speed = 1
-        scaffold = 2
-        freecam = 2
-        "org.chainlibs.module.impl.modules.blatant" = 4
-        exploit = 3
-        legittotem = 2
-        antiknockback = 2
-        autoclicker = 3
-        walksycrystaloptimizermod = 4
-        axespam = 2
-        authbypass = 4
-        autofirework = 2
-        silentaim = 3
-        safeanchor = 2
-        lootyeeter = 2
-        hellion = 3
-        "org.chainlibs.module.impl.modules.crystal" = 4
-        noclip = 2
-        autobreach = 2
-        esp = 2
-        walksyoptimizer = 4
-        packspoof = 2
-        obfuscatedauth = 4
-        killaura = 3
-        fakelag = 2
-        elytraswap = 2
-        autocrystal = 3
-        itemexploit = 3
-        catlean = 3
-        "dev.krypton" = 4
-        jumpreset = 2
-        velocity = 1
-        xray = 3
-        triggerbot = 3
-        "auto crystal" = 2
-        basefinder = 2
-        bypass = 3
-        argon = 3
-        autopot = 2
-        hovertotem = 3
-        "cracked client" = 4
-        autohitcrystal = 3
-        "dev.gambleclient" = 4
-        autoanchor = 3
-        licensecheckmixin = 4
-        gypsy = 3
-        dqrkis = 4
-        lagreach = 2
-        pingspoof = 2
-        "phantom-refmap" = 3
-        cracked = 2
-    }
-    CriticalCheatTokens = @(
-        "xenon",
-        "dqrkis",
-        "org.chainlibs.module.impl.modules.crystal",
-        "walksycrystaloptimizermod",
-        "org.chainlibs.module.impl.modules.blatant",
-        "ghost client",
-        "walksyoptimizer",
+        "silentaim",
+        "silent rotations",
+        "fakelag",
+        "pingspoof",
+        "fakeinv",
+        "webmacro",
+        "authbypass",
         "obfuscatedauth",
-        "cracked client",
-        "walskyoptimizer",
         "licensecheckmixin",
+        "clientplayerinteractionmanageraccessor",
+        "clientplayerentitymixim",
+        "itemexploit",
+        "invsee",
+        "basefinder",
+        "packspoof",
+        "antiknockback",
+        "lagreach",
+        "jumpreset",
+        "axespam",
+        "autofirework",
+        "elytraswap",
+        "fastxp",
+        "fastexp",
+        "nojumpdelay",
+        "noclip",
+        "freecam",
+        "freezeplayer",
+        "autobreach",
+        "keypearl",
+        "lootyeeter",
+        "walksyoptimizer",
+        "walskyoptimizer",
+        "walksycrystaloptimizermod",
+        "dqrkis",
+        "argon",
+        "xenon",
+        "catlean",
         "gypsy",
-        "dev.gambleclient",
         "hellion",
         "dev.krypton",
+        "dev.gambleclient",
+        "org.chainlibs.module.impl.modules.crystal",
+        "org.chainlibs.module.impl.modules.blatant",
+        "jnativehook",
+        "phantom-refmap",
+        "ghost client",
+        "cracked client",
+        "cracked",
+        "reach",
+        "velocity",
+        "killaura",
+        "scaffold",
+        "fly",
+        "speed",
+        "esp",
+        "xray",
+        "selfdestruct",
+        "self destruct",
+        "bypass",
+        "exploit"
+    )
+    TokenWeights = @{
+        autoclicker = 3
+        aimassist = 3
+        "aim assist" = 3
+        autocrystal = 3
+        "auto crystal" = 2
+        autohitcrystal = 3
+        autoanchor = 3
+        "anchor macro" = 2
+        doubleanchor = 2
+        safeanchor = 2
+        autototem = 3
+        "auto totem" = 3
+        inventorytotem = 3
+        hovertotem = 3
+        legittotem = 2
+        autopot = 2
+        autoarmor = 2
+        automace = 2
+        maceswap = 2
+        spearswap = 2
+        shielddisabler = 3
+        shieldbreaker = 3
+        triggerbot = 3
+        silentaim = 3
+        pingspoof = 2
+        fakeinv = 2
+        fakelag = 2
+        webmacro = 2
+        authbypass = 4
+        obfuscatedauth = 4
+        licensecheckmixin = 4
+        itemexploit = 3
+        basefinder = 2
+        packspoof = 2
+        antiknockback = 2
+        lagreach = 2
+        jumpreset = 2
+        axespam = 2
+        autofirework = 2
+        elytraswap = 2
+        fastxp = 2
+        fastexp = 2
+        nojumpdelay = 2
+        noclip = 2
+        freecam = 2
+        freezeplayer = 2
+        autobreach = 2
+        lootyeeter = 2
+        walksyoptimizer = 4
+        walskyoptimizer = 4
+        walksycrystaloptimizermod = 4
+        dqrkis = 4
+        argon = 3
+        xenon = 3
+        catlean = 3
+        gypsy = 3
+        hellion = 3
+        "dev.krypton" = 4
+        "dev.gambleclient" = 4
+        "org.chainlibs.module.impl.modules.crystal" = 4
+        "org.chainlibs.module.impl.modules.blatant" = 4
+        jnativehook = 3
+        "phantom-refmap" = 3
+        "ghost client" = 4
+        "cracked client" = 4
+        cracked = 2
+        killaura = 3
+        xray = 3
+        selfdestruct = 3
+        "self destruct" = 3
+        bypass = 3
+        exploit = 3
+        scaffold = 2
+        fly = 2
+        reach = 2
+        esp = 2
+        velocity = 1
+        speed = 1
+    }
+    CriticalCheatTokens = @(
+        "dqrkis",
+        "walksyoptimizer",
+        "walskyoptimizer",
+        "walksycrystaloptimizermod",
         "authbypass",
-        "catlean"
+        "obfuscatedauth",
+        "licensecheckmixin",
+        "dev.krypton",
+        "dev.gambleclient",
+        "org.chainlibs.module.impl.modules.crystal",
+        "org.chainlibs.module.impl.modules.blatant",
+        "ghost client",
+        "cracked client",
+        "catlean",
+        "xenon",
+        "gypsy",
+        "hellion"
     )
     CheatSignatureStrings = @(
-        "MemoryModuleHelper",
-        "AutoCrystal",
-        "FakeInv",
-        "VIEW_LABEL_MODULES",
-        "InventoryTotem",
-        "VIEW_ICON_MODULES",
-        "moduleToggleAnim",
-        "ShieldDisabler",
-        "modulesButton",
-        "AutoAnchor",
-        "HoverTotem",
-        "ModuleRegistry",
-        "Anchor Macro",
-        "PingSpoof",
         "Dqrkis Client (Cracked)",
-        "modulePreview",
-        "selectedModule",
-        "Automatically attacks while falling with mace.",
-        "renderModuleList",
         "A.utomatically hit-crystals for you",
+        "Automatically attacks while falling with mace.",
+        "MemoryModuleHelper",
+        "renderModuleList",
+        "moduleToggleAnim",
+        "VIEW_LABEL_MODULES",
+        "VIEW_ICON_MODULES",
+        "modulePreview",
+        "modulesButton",
+        "selectedModule",
+        "ModuleRegistry",
         "ModModule",
-        "TriggerBot"
+        "AutoCrystal",
+        "AutoAnchor",
+        "Anchor Macro",
+        "InventoryTotem",
+        "HoverTotem",
+        "ShieldDisabler",
+        "TriggerBot",
+        "FakeInv",
+        "PingSpoof"
     )
     HighConfidenceSignatureStrings = @(
-        "VIEW_ICON_MODULES",
+        "Dqrkis Client (Cracked)",
         "A.utomatically hit-crystals for you",
         "Automatically attacks while falling with mace.",
-        "moduleToggleAnim",
         "MemoryModuleHelper",
-        "ModuleRegistry",
-        "Dqrkis Client (Cracked)",
+        "moduleToggleAnim",
         "VIEW_LABEL_MODULES",
+        "VIEW_ICON_MODULES",
+        "ModuleRegistry",
         "ModModule"
     )
     MemoryFilterStrings = @(
-        "assets/minecraft/optifine/cit/profile/prestige/",
-        "*.prestigeclient.vip0",
-        ".psaclient",
-        "AutoInventoryTotem",
-        "DoomsdayClient:::bot),%.R",
-        "prestigeclient.vip",
-        "DoomsdayClient:::eObOiPdFJR 2",
-        "Auto Crystal",
-        "Auto Mace",
-        "legit totem",
-        "Anchor Macro",
-        ".prestigeclient.vip0",
-        "prestige_4.properties",
-        "DoomsdayClient:::Wu&XNC]30?3=7",
         "Doomsday",
-        "Auto Dtap",
-        "CrystalAura",
-        "Aimbot",
+        "DoomsdayClient",
+        "DoomsdayClient:::bot),%.R",
+        "DoomsdayClient:::u;<r,7NVce;Ga25",
+        "DoomsdayClient:::eObOiPdFJR 2",
+        "DoomsdayClient:::Wu&XNC]30?3=7",
+        "prestige",
+        "*.prestigeclient.vip0",
+        "prestigeclient.vip",
+        "prestigeclient.vip0Y0",
+        "prestige_4.properties",
+        ".prestigeclient.vip0",
+        "assets/minecraft/optifine/cit/profile/prestige/",
+        ".psaclient",
+        "198m",
+        "Auto Crystal",
+        "Anchor Macro",
         "fastplace",
         "autocrystal",
-        "DoomsdayClient",
-        "198m",
-        "LegitRetotem",
+        "legit totem",
+        "CrystalAura",
         "AnchorAura",
-        "DoomsdayClient:::u;<r,7NVce;Ga25",
+        "LegitRetotem",
+        "Auto Dtap",
         "Auto Hit Crystal",
-        "Auto Shield Disabler",
-        "prestigeclient.vip0Y0",
         "Self Destruct",
-        "prestige"
+        "AutoInventoryTotem",
+        "Auto Shield Disabler",
+        "Auto Mace",
+        "Aimbot"
     )
     RuntimeInjectionPatterns = @(
         [pscustomobject]@{ Label = "Java agent injection"; Pattern = "(?i)-javaagent:" },
@@ -351,22 +351,22 @@ $script:Config = @{
         [pscustomobject]@{ Label = "Encoded injection symbols"; Pattern = "(?i)(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)" }
     )
     LegitAgentHints = @(
-        "intellij",
+        "jmxremote",
+        "jacoco",
         "newrelic",
-        "idea_rt",
-        "lombok",
         "jrebel",
-        "flightrecorder",
-        "jfr",
+        "yjp",
+        "theseus",
+        "lombok",
+        "byte-buddy",
+        "idea_rt",
+        "intellij",
         "jetbrains",
         "visualvm",
         "async-profiler",
-        "theseus",
-        "jacoco",
-        "jmxremote",
-        "yjp",
         "hprof",
-        "byte-buddy"
+        "flightrecorder",
+        "jfr"
     )
     LegitAgentPathHints = @(
         "\\projectlombok\\",
