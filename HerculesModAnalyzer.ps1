@@ -1,4 +1,3 @@
-```
 [CmdletBinding()]
 param(
     [string]$Path,
@@ -3310,4 +3309,3 @@ if (-not $Quiet) {
 
     Show-XmaCompletionMenu -ReportText $reportText
 }
-```
