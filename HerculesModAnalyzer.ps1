@@ -30,11 +30,6 @@ $script:Config = @{
     Creator = "Hercules"
     Credits = @(
         [pscustomobject]@{
-            Name = "MeowTonynoh"
-            Project = "Meow Mod Analyzer"
-            Url = "https://github.com/MeowTonynoh"
-        },
-        [pscustomobject]@{
             Name = "YarpLetapStan"
             Project = "Yarp's Mod Analyzer"
             Url = "https://github.com/YarpLetapStan/PowershellScripts"
@@ -43,6 +38,11 @@ $script:Config = @{
             Name = "veridondevvv"
             Project = "Yumiko Mod Analyzer"
             Url = "https://github.com/veridondevvv/YumikoModAnalyzer"
+        },
+        [pscustomobject]@{
+            Name = "MeowTonynoh"
+            Project = "Meow Mod Analyzer"
+            Url = "https://github.com/MeowTonynoh"
         }
     )
     ModCheatTokens = @(
