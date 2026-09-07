@@ -25,8 +25,8 @@ try {
 }
 
 $script:Config = @{
-    Name = "Hercules mod analyzer"
-    Version = "2.0.13"
+    Name = "Hercules Mod Analyzer"
+    Version = "1"
     Creator = "Hercules"
     Credits = @(
         [pscustomobject]@{
