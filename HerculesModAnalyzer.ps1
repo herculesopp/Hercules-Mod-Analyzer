@@ -256,7 +256,12 @@ $script:Config = @{
         "ShieldDisabler",
         "TriggerBot",
         "FakeInv",
-        "PingSpoof"
+        "PingSpoof",
+        "BooleanSetting",
+        "MouseSimulation",
+        "EncryptedString",
+        "GameRenderListener",
+        "TickListener"
     )
     HighConfidenceSignatureStrings = @(
         "Dqrkis Client (Cracked)",
