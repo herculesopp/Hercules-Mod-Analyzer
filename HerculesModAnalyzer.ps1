@@ -19,7 +19,7 @@ $ErrorActionPreference = "Stop"
 # Hercules progress bar theme
 try {
     $Host.PrivateData.ProgressForegroundColor = "Magenta"
-    $Host.PrivateData.ProgressBackgroundColor = "DarkMagenta"
+    $Host.PrivateData.ProgressBackgroundColor = "Black"
 } catch {
     # Some hosts do not expose configurable progress colors.
 }
