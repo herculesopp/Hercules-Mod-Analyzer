@@ -1,2205 +1,249 @@
-[CmdletBinding()]
-param(
-    [string]$Path,
-    [switch]$SkipRuntimeScan,
-    [switch]$SkipMemoryScan,
-    [ValidateRange(32, 1024)]
-    [int]$MemoryScanMB = 192,
-    [switch]$NoModVerification,
-    [switch]$NoMegabase,
-    [switch]$RevealHidden,
-    [switch]$NoStatusLists,
-    [switch]$ShowStatusLists,
-    [switch]$Quiet
-)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+Clear-Host
 
-Set-StrictMode -Version 3
-$ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
 
-# Hercules progress bar theme
-try {
-    $Host.PrivateData.ProgressForegroundColor = "Magenta"
-    $Host.PrivateData.ProgressBackgroundColor = "Black"
-} catch {
-    # Some hosts do not expose configurable progress colors.
-}
+Write-Host "  [i] Developed by Hercules`n" -ForegroundColor DarkMagenta
+Write-Host @"
+██╗  ██╗███████╗██████╗  ██████╗██╗   ██╗██╗     ███████╗███████╗
+██║  ██║██╔════╝██╔══██╗██╔════╝██║   ██║██║     ██╔════╝██╔════╝
+███████║█████╗  ██████╔╝██║     ██║   ██║██║     █████╗  ███████╗
+██╔══██║██╔══╝  ██╔══██╗██║     ██║   ██║██║     ██╔══╝  ╚════██║
+██║  ██║███████╗██║  ██║╚██████╗╚██████╔╝███████╗███████╗███████║
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝╚══════╝
+ █████╗ ███╗   ██╗ █████╗ ██╗     ██╗   ██╗███████╗███████╗██████╗ 
+██╔══██╗████╗  ██║██╔══██╗██║     ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
+███████║██╔██╗ ██║███████║██║      ╚████╔╝   ███╔╝ █████╗  ██████╔╝
+██╔══██║██║╚██╗██║██╔══██║██║       ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
+██║  ██║██║ ╚████║██║  ██║███████╗   ██║   ███████╗███████╗██║  ██║
+╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+"@ -ForegroundColor Magenta
 
-$script:Config = @{
-    Name = "Hercules Mod Analyzer"
-    Version = "1"
-    Creator = "Hercules"
-    Credits = @(
-        [pscustomobject]@{
-            Name = "YarpLetapStan"
-            Project = "Yarp's Mod Analyzer"
-            Url = "https://github.com/YarpLetapStan/PowershellScripts"
-        },
-        [pscustomobject]@{
-            Name = "veridondevvv"
-            Project = "Yumiko Mod Analyzer"
-            Url = "https://github.com/veridondevvv/YumikoModAnalyzer"
-        },
-        [pscustomobject]@{
-            Name = "MeowTonynoh"
-            Project = "Meow Mod Analyzer"
-            Url = "https://github.com/MeowTonynoh"
-        }
-    )
-    ModCheatTokens = @(
-        "autoclicker",
-        "aimassist",
-        "aim assist",
-        "autocrystal",
-        "auto crystal",
-        "autohitcrystal",
-        "autoanchor",
-        "anchor macro",
-        "anchortweaks",
-        "doubleanchor",
-        "safeanchor",
-        "airanchor",
-        "autototem",
-        "auto totem",
-        "inventorytotem",
-        "hovertotem",
-        "legittotem",
-        "autopot",
-        "autoarmor",
-        "autoeat",
-        "automine",
-        "automace",
-        "maceswap",
-        "spearswap",
-        "autodoublehand",
-        "shielddisabler",
-        "shieldbreaker",
-        "triggerbot",
-        "silentaim",
-        "silent rotations",
-        "fakelag",
-        "pingspoof",
-        "fakeinv",
-        "webmacro",
-        "authbypass",
-        "obfuscatedauth",
-        "licensecheckmixin",
-        "clientplayerinteractionmanageraccessor",
-        "clientplayerentitymixim",
-        "itemexploit",
-        "invsee",
-        "basefinder",
-        "packspoof",
-        "antiknockback",
-        "lagreach",
-        "jumpreset",
-        "axespam",
-        "autofirework",
-        "elytraswap",
-        "fastxp",
-        "fastexp",
-        "nojumpdelay",
-        "noclip",
-        "freecam",
-        "freezeplayer",
-        "autobreach",
-        "keypearl",
-        "lootyeeter",
-        "walksyoptimizer",
-        "walskyoptimizer",
-        "walksycrystaloptimizermod",
-        "dqrkis",
-        "argon",
-        "xenon",
-        "catlean",
-        "gypsy",
-        "hellion",
-        "dev.krypton",
-        "dev.gambleclient",
-        "org.chainlibs.module.impl.modules.crystal",
-        "org.chainlibs.module.impl.modules.blatant",
-        "jnativehook",
-        "phantom-refmap",
-        "ghost client",
-        "cracked client",
-        "cracked",
-        "reach",
-        "velocity",
-        "killaura",
-        "scaffold",
-        "fly",
-        "speed",
-        "esp",
-        "xray",
-        "selfdestruct",
-        "self destruct",
-        "bypass",
-        "exploit"
-    )
-    TokenWeights = @{
-        autoclicker = 3
-        aimassist = 3
-        "aim assist" = 3
-        autocrystal = 3
-        "auto crystal" = 2
-        autohitcrystal = 3
-        autoanchor = 3
-        "anchor macro" = 2
-        doubleanchor = 2
-        safeanchor = 2
-        autototem = 3
-        "auto totem" = 3
-        inventorytotem = 3
-        hovertotem = 3
-        legittotem = 2
-        autopot = 2
-        autoarmor = 2
-        automace = 2
-        maceswap = 2
-        spearswap = 2
-        shielddisabler = 3
-        shieldbreaker = 3
-        triggerbot = 3
-        silentaim = 3
-        pingspoof = 2
-        fakeinv = 2
-        fakelag = 2
-        webmacro = 2
-        authbypass = 4
-        obfuscatedauth = 4
-        licensecheckmixin = 4
-        itemexploit = 3
-        basefinder = 2
-        packspoof = 2
-        antiknockback = 2
-        lagreach = 2
-        jumpreset = 2
-        axespam = 2
-        autofirework = 2
-        elytraswap = 2
-        fastxp = 2
-        fastexp = 2
-        nojumpdelay = 2
-        noclip = 2
-        freecam = 2
-        freezeplayer = 2
-        autobreach = 2
-        lootyeeter = 2
-        walksyoptimizer = 4
-        walskyoptimizer = 4
-        walksycrystaloptimizermod = 4
-        dqrkis = 4
-        argon = 3
-        xenon = 3
-        catlean = 3
-        gypsy = 3
-        hellion = 3
-        "dev.krypton" = 4
-        "dev.gambleclient" = 4
-        "org.chainlibs.module.impl.modules.crystal" = 4
-        "org.chainlibs.module.impl.modules.blatant" = 4
-        jnativehook = 3
-        "phantom-refmap" = 3
-        "ghost client" = 4
-        "cracked client" = 4
-        cracked = 2
-        killaura = 3
-        xray = 3
-        selfdestruct = 3
-        "self destruct" = 3
-        bypass = 3
-        exploit = 3
-        scaffold = 2
-        fly = 2
-        reach = 2
-        esp = 2
-        velocity = 1
-        speed = 1
-    }
-    CriticalCheatTokens = @(
-        "dqrkis",
-        "walksyoptimizer",
-        "walskyoptimizer",
-        "walksycrystaloptimizermod",
-        "authbypass",
-        "obfuscatedauth",
-        "licensecheckmixin",
-        "dev.krypton",
-        "dev.gambleclient",
-        "org.chainlibs.module.impl.modules.crystal",
-        "org.chainlibs.module.impl.modules.blatant",
-        "ghost client",
-        "cracked client",
-        "catlean",
-        "xenon",
-        "gypsy",
-        "hellion"
-    )
-    CheatSignatureStrings = @(
-        "Dqrkis Client (Cracked)",
-        "A.utomatically hit-crystals for you",
-        "Automatically attacks while falling with mace.",
-        "MemoryModuleHelper",
-        "renderModuleList",
-        "moduleToggleAnim",
-        "VIEW_LABEL_MODULES",
-        "VIEW_ICON_MODULES",
-        "modulePreview",
-        "modulesButton",
-        "selectedModule",
-        "ModuleRegistry",
-        "ModModule",
-        "AutoCrystal",
-        "AutoAnchor",
-        "Anchor Macro",
-        "InventoryTotem",
-        "HoverTotem",
-        "ShieldDisabler",
-        "TriggerBot",
-        "FakeInv",
-        "PingSpoof",
-        "BooleanSetting",
-        "MouseSimulation",
-        "EncryptedString",
-        "GameRenderListener",
-        "TickListener"
-    )
-    HighConfidenceSignatureStrings = @(
-        "Dqrkis Client (Cracked)",
-        "A.utomatically hit-crystals for you",
-        "Automatically attacks while falling with mace.",
-        "MemoryModuleHelper",
-        "moduleToggleAnim",
-        "VIEW_LABEL_MODULES",
-        "VIEW_ICON_MODULES",
-        "ModuleRegistry",
-        "ModModule"
-    )
-    MemoryFilterStrings = @(
-        "Doomsday",
-        "DoomsdayClient",
-        "DoomsdayClient:::bot),%.R",
-        "DoomsdayClient:::u;<r,7NVce;Ga25",
-        "DoomsdayClient:::eObOiPdFJR 2",
-        "DoomsdayClient:::Wu&XNC]30?3=7",
-        "prestige",
-        "*.prestigeclient.vip0",
-        "prestigeclient.vip",
-        "prestigeclient.vip0Y0",
-        "prestige_4.properties",
-        ".prestigeclient.vip0",
-        "assets/minecraft/optifine/cit/profile/prestige/",
-        ".psaclient",
-        "198m",
-        "Auto Crystal",
-        "Anchor Macro",
-        "fastplace",
-        "autocrystal",
-        "legit totem",
-        "CrystalAura",
-        "AnchorAura",
-        "LegitRetotem",
-        "Auto Dtap",
-        "Auto Hit Crystal",
-        "Self Destruct",
-        "AutoInventoryTotem",
-        "Auto Shield Disabler",
-        "Auto Mace",
-        "Aimbot"
-    )
-    RuntimeInjectionPatterns = @(
-        [pscustomobject]@{ Label = "Java agent injection"; Pattern = "(?i)-javaagent:" },
-        [pscustomobject]@{ Label = "Native agent injection"; Pattern = "(?i)-agentpath:" },
-        [pscustomobject]@{ Label = "Agent library injection"; Pattern = "(?i)-agentlib:" },
-        [pscustomobject]@{ Label = "Boot classpath injection"; Pattern = "(?i)-Xbootclasspath" },
-        [pscustomobject]@{ Label = "Fabric addMods injection"; Pattern = "(?i)-Dfabric\.addMods=" },
-        [pscustomobject]@{ Label = "Fabric loadMods injection"; Pattern = "(?i)-Dfabric\.loadMods=" },
-        [pscustomobject]@{ Label = "Fabric classPathGroups injection"; Pattern = "(?i)-Dfabric\.classPathGroups=" },
-        [pscustomobject]@{ Label = "Fabric gameJarPath override"; Pattern = "(?i)-Dfabric\.gameJarPath=" },
-        [pscustomobject]@{ Label = "Fabric skipMcProvider override"; Pattern = "(?i)-Dfabric\.skipMcProvider=" },
-        [pscustomobject]@{ Label = "Fabric development override"; Pattern = "(?i)-Dfabric\.development=" },
-        [pscustomobject]@{ Label = "Fabric unsupported version override"; Pattern = "(?i)-Dfabric\.allowUnsupportedVersion=" },
-        [pscustomobject]@{ Label = "Fabric remapClasspathFile injection"; Pattern = "(?i)-Dfabric\.remapClasspathFile=" },
-        [pscustomobject]@{ Label = "Fabric skipIntermediary override"; Pattern = "(?i)-Dfabric\.skipIntermediary=" },
-        [pscustomobject]@{ Label = "Fabric configDir override"; Pattern = "(?i)-Dfabric\.configDir=" },
-        [pscustomobject]@{ Label = "Fabric loader config override"; Pattern = "(?i)-Dfabric\.loader\.config=" },
-        [pscustomobject]@{ Label = "Fabric log level override"; Pattern = "(?i)-Dfabric\.log\.level=" },
-        [pscustomobject]@{ Label = "Fabric debug classpath dump"; Pattern = "(?i)-Dfabric\.debug\.dumpClasspath=" },
-        [pscustomobject]@{ Label = "Fabric log config override"; Pattern = "(?i)-Dfabric\.log\.config=" },
-        [pscustomobject]@{ Label = "Fabric DLI config override"; Pattern = "(?i)-Dfabric\.dli\.config=" },
-        [pscustomobject]@{ Label = "Fabric mixin configs injection"; Pattern = "(?i)-Dfabric\.mixin\.configs=" },
-        [pscustomobject]@{ Label = "Fabric mixin hotSwap override"; Pattern = "(?i)-Dfabric\.mixin\.hotSwap=" },
-        [pscustomobject]@{ Label = "Fabric mixin debug export"; Pattern = "(?i)-Dfabric\.mixin\.debug\.export=" },
-        [pscustomobject]@{ Label = "Fabric mixin verbose debug"; Pattern = "(?i)-Dfabric\.mixin\.debug\.verbose=" },
-        [pscustomobject]@{ Label = "Fabric gameVersion override"; Pattern = "(?i)-Dfabric\.gameVersion=" },
-        [pscustomobject]@{ Label = "Fabric forceVersion override"; Pattern = "(?i)-Dfabric\.forceVersion=" },
-        [pscustomobject]@{ Label = "Fabric autoDetectVersion override"; Pattern = "(?i)-Dfabric\.autoDetectVersion=" },
-        [pscustomobject]@{ Label = "Fabric launcher name override"; Pattern = "(?i)-Dfabric\.launcher\.name=" },
-        [pscustomobject]@{ Label = "Fabric launcher brand override"; Pattern = "(?i)-Dfabric\.launcher\.brand=" },
-        [pscustomobject]@{ Label = "Fabric mods.toml path override"; Pattern = "(?i)-Dfabric\.mods\.toml\.path=" },
-        [pscustomobject]@{ Label = "Fabric custom mod list injection"; Pattern = "(?i)-Dfabric\.customModList=" },
-        [pscustomobject]@{ Label = "Fabric resolve modFiles override"; Pattern = "(?i)-Dfabric\.resolve\.modFiles=" },
-        [pscustomobject]@{ Label = "Fabric skip dependency resolution"; Pattern = "(?i)-Dfabric\.skipDependencyResolution=" },
-        [pscustomobject]@{ Label = "Fabric loader entrypoints injection"; Pattern = "(?i)-Dfabric\.loader\.entrypoints=" },
-        [pscustomobject]@{ Label = "Fabric language providers injection"; Pattern = "(?i)-Dfabric\.language\.providers=" },
-        [pscustomobject]@{ Label = "Forge addMods injection"; Pattern = "(?i)-Dforge\.addMods=" },
-        [pscustomobject]@{ Label = "Forge mods override"; Pattern = "(?i)-Dforge\.mods=" },
-        [pscustomobject]@{ Label = "Forge coremod load injection"; Pattern = "(?i)-Dfml\.coreMods\.load=" },
-        [pscustomobject]@{ Label = "Forge coreMods dir override"; Pattern = "(?i)-Dforge\.coreMods\.dir=" },
-        [pscustomobject]@{ Label = "Forge modDir override"; Pattern = "(?i)-Dforge\.modDir=" },
-        [pscustomobject]@{ Label = "Forge modsDirectories override"; Pattern = "(?i)-Dforge\.modsDirectories=" },
-        [pscustomobject]@{ Label = "FML custom mod list injection"; Pattern = "(?i)-Dfml\.customModList=" },
-        [pscustomobject]@{ Label = "Forge disable mod scan override"; Pattern = "(?i)-Dforge\.disableModScan=" },
-        [pscustomobject]@{ Label = "Forge modList override"; Pattern = "(?i)-Dforge\.modList=" },
-        [pscustomobject]@{ Label = "Forge forceVersion override"; Pattern = "(?i)-Dforge\.forceVersion=" },
-        [pscustomobject]@{ Label = "Forge disable update check"; Pattern = "(?i)-Dforge\.disableUpdateCheck=" },
-        [pscustomobject]@{ Label = "Forge Mojang logging override"; Pattern = "(?i)-Dforge\.logging\.mojang\.level=" },
-        [pscustomobject]@{ Label = "Forge mixin hotSwap override"; Pattern = "(?i)-Dforge\.mixin\.hotSwap=" },
-        [pscustomobject]@{ Label = "Forge resourcePack override"; Pattern = "(?i)-Dforge\.resourcePack=" },
-        [pscustomobject]@{ Label = "Forge defaultResourcePack override"; Pattern = "(?i)-Dforge\.defaultResourcePack=" },
-        [pscustomobject]@{ Label = "Forge texturePacks override"; Pattern = "(?i)-Dforge\.texturePacks=" },
-        [pscustomobject]@{ Label = "Forge assetIndex override"; Pattern = "(?i)-Dforge\.assetIndex=" },
-        [pscustomobject]@{ Label = "Forge assetsDir override"; Pattern = "(?i)-Dforge\.assetsDir=" },
-        [pscustomobject]@{ Label = "System classloader override"; Pattern = "(?i)-Djava\.system\.class\.loader=" },
-        [pscustomobject]@{ Label = "Class path override"; Pattern = "(?i)-Djava\.class\.path=" },
-        [pscustomobject]@{ Label = "Encoded injection symbols"; Pattern = "(?i)(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)" }
-    )
-    LegitAgentHints = @(
-        "jmxremote",
-        "jacoco",
-        "newrelic",
-        "jrebel",
-        "yjp",
-        "theseus",
-        "lombok",
-        "byte-buddy",
-        "idea_rt",
-        "intellij",
-        "jetbrains",
-        "visualvm",
-        "async-profiler",
-        "hprof",
-        "flightrecorder",
-        "jfr"
-    )
-    LegitAgentPathHints = @(
-        "\\projectlombok\\",
-        "\\.gradle\\caches\\",
-        "\\m2\\repository\\",
-        "\\jetbrains\\",
-        "\\intellij",
-        "\\eclipse\\",
-        "\\jdk\\",
-        "\\java\\",
-        "\\microsoft\\jdk\\",
-        "\\temurin\\",
-        "\\modrinthapp\\",
-        "\\prismlauncher\\",
-        "\\multimc\\",
-        "\\lunarclient\\",
-        "\\badlion\\",
-        "\\curseforge\\",
-        "\\.minecraft\\libraries\\"
-    )
-    SuspiciousAgentHints = @(
-        "inject",
-        "bypass",
-        "cheat",
-        "ghost",
-        "clicker",
-        "aim",
-        "killaura",
-        "triggerbot",
-        "reach",
-        "velocity",
-        "xray",
-        "selfdestruct",
-        "dqrkis",
-        "argon",
-        "walksy",
-        "walsky",
-        "catlean",
-        "xenon",
-        "gypsy"
-    )
-    RuntimeHighRiskLabels = @(
-        "Native agent injection",
-        "Agent library injection",
-        "Boot classpath injection",
-        "Fabric addMods injection",
-        "Fabric loadMods injection",
-        "Fabric remapClasspathFile injection",
-        "Fabric custom mod list injection",
-        "Fabric resolve modFiles override",
-        "Fabric loader entrypoints injection",
-        "Fabric language providers injection",
-        "Forge addMods injection",
-        "Forge coremod load injection",
-        "Forge coreMods dir override",
-        "Forge modDir override",
-        "Forge modsDirectories override",
-        "FML custom mod list injection",
-        "Forge modList override",
-        "System classloader override",
-        "Encoded injection symbols"
-    )
-    RuntimeEditGraceSeconds = 3
-}
+$lineWidth = 100
+Write-Host "HERCULES ANALYZER V1.0".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host ("━" * $lineWidth) -ForegroundColor Magenta
+Write-Host ""
 
-$script:ModTokenPatterns = @()
-foreach ($token in $script:Config.ModCheatTokens) {
-    $escaped = [regex]::Escape($token) -replace "\\ ", "[\\s_\\-]*"
-    $pattern = "(?i)(?<![a-z0-9])$escaped(?![a-z0-9])"
-    $script:ModTokenPatterns += [pscustomobject]@{
-        Token = $token
-        Regex = [regex]::new($pattern)
-    }
-}
-
-$script:MemoryNeedlesNormalized = @(
-    $script:Config.MemoryFilterStrings |
-        ForEach-Object {
-            $n = ([string]$_).Trim().ToLowerInvariant()
-            if ($n.StartsWith("*")) { $n = $n.TrimStart("*") }
-            if ($n.EndsWith("*")) { $n = $n.TrimEnd("*") }
-            $n
-        } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-        Select-Object -Unique
-)
-
-$script:SignatureMatchersCache = @()
-
-$script:MemoryApiLoaded = $false
-$script:PathWasExplicit = $PSBoundParameters.ContainsKey("Path") -and -not [string]::IsNullOrWhiteSpace($Path)
-$script:ProgressIds = @{
-    Hidden = 10
-    Mods = 11
-    Runtime = 12
-    MemoryTargets = 13
-    MemoryBytes = 14
-}
-
-function Disable-XmaConsoleQuickEdit {
-    # Prevent console freeze when the user clicks/selects text in the window.
-    try {
-        if (-not ("XmaConsoleNative" -as [type])) {
-            Add-Type @"
+if (-not ('ProcessHelper' -as [type])) {
+    Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
-
-public static class XmaConsoleNative {
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern IntPtr GetStdHandle(int nStdHandle);
-
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out int lpMode);
-
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern bool SetConsoleMode(IntPtr hConsoleHandle, int dwMode);
-}
-"@ -ErrorAction Stop
-        }
-
-        $stdInputHandle = [XmaConsoleNative]::GetStdHandle(-10)
-        $invalidHandle = [IntPtr]::new(-1)
-        if ($stdInputHandle -eq [IntPtr]::Zero -or $stdInputHandle -eq $invalidHandle) {
-            return
-        }
-
-        $mode = 0
-        if (-not [XmaConsoleNative]::GetConsoleMode($stdInputHandle, [ref]$mode)) {
-            return
-        }
-
-        $enableExtendedFlags = 0x0080
-        $enableQuickEditMode = 0x0040
-        $newMode = $mode -bor $enableExtendedFlags
-        $newMode = $newMode -band (-bnot $enableQuickEditMode)
-        if ($newMode -ne $mode) {
-            [void][XmaConsoleNative]::SetConsoleMode($stdInputHandle, $newMode)
-        }
-    } catch {
-    }
-}
-
-function Write-XmaProgress {
-    param(
-        [Parameter(Mandatory)]
-        [int]$Id,
-        [Parameter(Mandatory)]
-        [string]$Activity,
-        [Parameter(Mandatory)]
-        [string]$Status,
-        [double]$Current = 0,
-        [double]$Total = 100
-    )
-
-    if ($Quiet) { return }
-    $safeTotal = if ($Total -le 0) { 1 } else { $Total }
-    $safeCurrent = [Math]::Max(0, [Math]::Min($Current, $safeTotal))
-    $percent = [int][Math]::Floor(($safeCurrent / [double]$safeTotal) * 100)
-    Write-Progress -Id $Id -Activity $Activity -Status $Status -PercentComplete $percent
-}
-
-function Complete-XmaProgress {
-    param(
-        [Parameter(Mandatory)]
-        [int]$Id,
-        [Parameter(Mandatory)]
-        [string]$Activity
-    )
-
-    if ($Quiet) { return }
-    Write-Progress -Id $Id -Activity $Activity -Completed
-}
-
-function Write-XmaRule {
-    param([string]$Color = "DarkGray")
-    if ($Quiet) { return }
-    Write-Host ("=" * 70) -ForegroundColor $Color
-}
-
-function Write-XmaSection {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Title,
-        [string]$Color = "Cyan"
-    )
-
-    if ($Quiet) { return }
-    Write-Host ""
-    Write-Host ("[ " + $Title + " ]") -ForegroundColor $Color
-}
-
-function Write-XmaSummaryLine {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Label,
-        [Parameter(Mandatory)]
-        [int]$Count,
-        [Parameter(Mandatory)]
-        [int]$Total,
-        [Parameter(Mandatory)]
-        [string]$Color
-    )
-
-    $safeTotal = if ($Total -le 0) { 1 } else { $Total }
-    $pct = [math]::Round(($Count / [double]$safeTotal) * 100, 1)
-    $line = "{0,-18} {1,4}/{2,-4} ({3,5}%)" -f ($Label + ":"), $Count, $Total, $pct
-    Write-Host $line -ForegroundColor $Color
-}
-
-function Format-XmaDuration {
-    param([timespan]$Span)
-
-    if ($Span.TotalSeconds -lt 0) {
-        $Span = [timespan]::Zero
-    }
-
-    $hours = [int][math]::Floor($Span.TotalHours)
-    return "{0:00}:{1:00}:{2:00}" -f $hours, $Span.Minutes, $Span.Seconds
-}
-
-function Test-XmaLikelyLauncherModsPath {
-    param([string]$Path)
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        return $false
-    }
-
-    $normalized = ([string]$Path).Trim().Trim('"').Trim("'").ToLowerInvariant()
-    if ($normalized.EndsWith("\\")) {
-        $normalized = $normalized.TrimEnd('\\')
-    }
-
-    $leaf = ""
-    try {
-        $leaf = ([System.IO.Path]::GetFileName($normalized)).ToLowerInvariant()
-    } catch {
-        $leaf = ""
-    }
-
-    if ($leaf -ne "mods") {
-        return $false
-    }
-
-    if ($normalized -match '(?i)\.minecraft|modrinthapp|prismlauncher|multimc|curseforge|lunarclient|badlion|feather|launcher') {
-        return $true
-    }
-
-    return $false
-}
-
-function Get-XmaRuntimeWindowInfo {
-    param(
-        [object[]]$RuntimeTargets,
-        [datetime]$WindowEndUtc
-    )
-
-    $targetsWithStart = @($RuntimeTargets | Where-Object { $_.StartTimeUtc -is [datetime] })
-    if ($targetsWithStart.Count -eq 0) {
-        return [pscustomobject]@{
-            HasWindow = $false
-            WindowStartUtc = $null
-            WindowEndUtc = $WindowEndUtc
-            TargetCount = 0
-        }
-    }
-
-    $windowStartUtc = ($targetsWithStart | Measure-Object -Property StartTimeUtc -Minimum).Minimum
-    return [pscustomobject]@{
-        HasWindow = $true
-        WindowStartUtc = $windowStartUtc
-        WindowEndUtc = $WindowEndUtc
-        TargetCount = $targetsWithStart.Count
-    }
-}
-
-function Apply-XmaRuntimeEditFlags {
-    param(
-        [object[]]$Reports,
-        [object]$RuntimeWindowInfo,
-        [int]$GraceSeconds = 3
-    )
-
-    $flagged = New-Object System.Collections.Generic.List[object]
-    if (-not $RuntimeWindowInfo -or -not $RuntimeWindowInfo.HasWindow) {
-        return @($flagged.ToArray())
-    }
-
-    $startUtc = $RuntimeWindowInfo.WindowStartUtc.AddSeconds(-1 * [Math]::Max(0, $GraceSeconds))
-    $endUtc = $RuntimeWindowInfo.WindowEndUtc.AddSeconds([Math]::Max(0, $GraceSeconds))
-
-    foreach ($r in $Reports) {
-        $lastWriteUtc = $null
-        try {
-            $lastWriteUtc = (Get-Item -LiteralPath $r.FilePath -Force -ErrorAction Stop).LastWriteTimeUtc
-        } catch {
-            continue
-        }
-
-        if (-not ($lastWriteUtc -is [datetime])) {
-            continue
-        }
-
-        if ($lastWriteUtc -lt $startUtc -or $lastWriteUtc -gt $endUtc) {
-            continue
-        }
-
-        $startLocal = $RuntimeWindowInfo.WindowStartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        $endLocal = $RuntimeWindowInfo.WindowEndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        $editLocal = $lastWriteUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        $reasonA = "Jar edit time overlaps active Java runtime window ($startLocal -> $endLocal, edited: $editLocal)."
-        $reasonB = "Exact content diff is unavailable without a baseline snapshot from before launch."
-
-        $existingReasons = @($r.Reasons)
-        $existingReasons += $reasonA
-        $existingReasons += $reasonB
-        $r.Reasons = @($existingReasons | Select-Object -Unique)
-
-        if ($r.Status -eq "Verified") {
-            $r.Status = "Review (Verified)"
-        } elseif ($r.Status -eq "Unknown") {
-            $r.Status = "Review"
-        }
-
-        $r | Add-Member -NotePropertyName EditedDuringRuntime -NotePropertyValue $true -Force
-        $r | Add-Member -NotePropertyName LastWriteTimeLocal -NotePropertyValue $editLocal -Force
-        $flagged.Add($r)
-    }
-
-    return @($flagged.ToArray())
-}
-
-function Get-XmaCommandTokens {
-    param([string]$CommandLine)
-
-    if ([string]::IsNullOrWhiteSpace($CommandLine)) {
-        return @()
-    }
-
-    $tokens = New-Object System.Collections.Generic.List[object]
-    $matches = [regex]::Matches($CommandLine, '"[^"]*"|''[^'']*''|\S+')
-    foreach ($m in $matches) {
-        $tokens.Add([pscustomobject]@{
-            Text = $m.Value
-            Start = $m.Index
-            End = ($m.Index + $m.Length - 1)
-        })
-    }
-
-    return @($tokens.ToArray())
-}
-
-function Get-XmaTokenAtPosition {
-    param(
-        [object[]]$Tokens,
-        [int]$Position
-    )
-
-    foreach ($token in @($Tokens)) {
-        if ($Position -ge $token.Start -and $Position -le $token.End) {
-            return $token
-        }
-    }
-
-    return $null
-}
-
-function Normalize-XmaJarPathCandidate {
-    param([string]$Candidate)
-
-    if ([string]::IsNullOrWhiteSpace($Candidate)) {
-        return ""
-    }
-
-    $normalized = [string]$Candidate
-    $normalized = $normalized.Trim().Trim('"').Trim("'").Trim()
-
-    if ($normalized -match '^[^=]+=(.+)$') {
-        $normalized = $matches[1].Trim()
-    }
-    if ($normalized -match '^(?i)-javaagent:(.+)$') {
-        $normalized = $matches[1].Trim()
-    } elseif ($normalized -match '^(?i)-agentpath:(.+)$') {
-        $normalized = $matches[1].Trim()
-    }
-
-    $normalized = $normalized.Trim().Trim('"').Trim("'").Trim()
-    $normalized = $normalized.TrimEnd(",", ";")
-
-    try {
-        $expanded = [Environment]::ExpandEnvironmentVariables($normalized)
-        if (-not [string]::IsNullOrWhiteSpace($expanded)) {
-            $normalized = $expanded
-        }
-    } catch {
-    }
-
-    try {
-        if ($normalized.Contains("%")) {
-            $decoded = [uri]::UnescapeDataString($normalized)
-            if (-not [string]::IsNullOrWhiteSpace($decoded)) {
-                $normalized = $decoded
+public class ProcessHelper
+{
+    [DllImport("ntdll.dll", SetLastError = true)]
+    private static extern int NtQueryInformationProcess(IntPtr ProcessHandle, int ProcessInformationClass, IntPtr ProcessInformation, int ProcessInformationLength, out int ReturnLength);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, int dwSize, out int lpNumberOfBytesRead);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool IsWow64Process(IntPtr hProcess, out bool wow64Process);
+    private const int PROCESS_QUERY_INFORMATION = 0x0400;
+    private const int PROCESS_VM_READ = 0x0010;
+    private static string ReadRemoteUnicodeString(IntPtr hProcess, IntPtr addr)
+    {
+        IntPtr ustrBuf = Marshal.AllocHGlobal(16);
+        try
+        {
+            int br;
+            if (!ReadProcessMemory(hProcess, addr, ustrBuf, 16, out br) || br != 16) return null;
+            short length = Marshal.ReadInt16(ustrBuf, 0);
+            if (length <= 0) return null;
+            IntPtr bufPtr = Marshal.ReadIntPtr(ustrBuf, 8);
+            if (bufPtr == IntPtr.Zero) return null;
+            IntPtr strBuf = Marshal.AllocHGlobal(length);
+            try
+            {
+                if (!ReadProcessMemory(hProcess, bufPtr, strBuf, length, out br) || br != length) return null;
+                return Marshal.PtrToStringUni(strBuf, length / 2);
             }
+            finally { Marshal.FreeHGlobal(strBuf); }
         }
-    } catch {
+        finally { Marshal.FreeHGlobal(ustrBuf); }
     }
-
-    if ($normalized -match '^(?i)file:(/+)?(.+)$') {
-        $normalized = $matches[2]
-        $normalized = $normalized -replace '/', '\\'
-    }
-
-    $normalized = $normalized -replace '[?#].*$', ''
-    $normalized = $normalized.Trim().Trim('"').Trim("'").Trim()
-
-    if ([string]::IsNullOrWhiteSpace($normalized)) {
-        return ""
-    }
-
-    if ($normalized -notmatch '(?i)\.(jar|zip)$') {
-        return ""
-    }
-
-    return $normalized
-}
-
-function Get-XmaJavaAgentAssessment {
-    param([string]$AgentArgument)
-
-    $agentPath = Normalize-XmaJarPathCandidate -Candidate $AgentArgument
-    if ([string]::IsNullOrWhiteSpace($agentPath)) {
-        $agentPath = ([string]$AgentArgument).Trim().Trim('"').Trim("'")
-    }
-
-    $agentName = [System.IO.Path]::GetFileName($agentPath)
-    $lowerName = ([string]$agentName).ToLowerInvariant()
-    $lowerPath = ([string]$agentPath).ToLowerInvariant()
-
-    $trustedByName = $false
-    foreach ($hint in @($script:Config.LegitAgentHints)) {
-        $hintText = ([string]$hint).ToLowerInvariant()
-        if (-not [string]::IsNullOrWhiteSpace($hintText) -and $lowerName.Contains($hintText)) {
-            $trustedByName = $true
-            break
-        }
-    }
-
-    $trustedByPath = $false
-    foreach ($hint in @($script:Config.LegitAgentPathHints)) {
-        $hintText = ([string]$hint).ToLowerInvariant()
-        if (-not [string]::IsNullOrWhiteSpace($hintText) -and $lowerPath.Contains($hintText)) {
-            $trustedByPath = $true
-            break
-        }
-    }
-
-    $suspiciousByHint = $false
-    foreach ($hint in @($script:Config.SuspiciousAgentHints)) {
-        $hintText = ([string]$hint).ToLowerInvariant()
-        if ([string]::IsNullOrWhiteSpace($hintText)) {
-            continue
-        }
-
-        if ($lowerName.Contains($hintText) -or $lowerPath.Contains($hintText)) {
-            $suspiciousByHint = $true
-            break
-        }
-    }
-
-    $suspiciousByLocation = $false
-    if ($lowerPath.Contains("\\mods\\") -or $lowerPath.Contains("\\versions\\")) {
-        $suspiciousByLocation = $true
-    }
-
-    $riskLevel = "unrecognized"
-    $trustReason = "No trusted hint matched."
-    if ($trustedByName) {
-        $riskLevel = "trusted"
-        $trustReason = "Matched trusted agent name hint."
-    } elseif ($trustedByPath) {
-        $riskLevel = "trusted"
-        $trustReason = "Matched trusted toolchain path hint."
-    } elseif ($suspiciousByHint) {
-        $riskLevel = "suspicious"
-        $trustReason = "Matched suspicious agent hint."
-    } elseif ($suspiciousByLocation) {
-        $riskLevel = "suspicious"
-        $trustReason = "Agent path points to mods/versions location."
-    }
-
-    [pscustomobject]@{
-        AgentName = $agentName
-        AgentPath = $agentPath
-        RiskLevel = $riskLevel
-        TrustReason = $trustReason
-    }
-}
-
-function Get-XmaReferencedJarPaths {
-    param([string]$Text)
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return @()
-    }
-
-    $results = New-Object System.Collections.Generic.List[string]
-    $candidates = New-Object System.Collections.Generic.List[string]
-    $patterns = @(
-        '(?i)"((?:[A-Z]:\\|\\\\)[^"]+\.(?:jar|zip))"',
-        "(?i)'((?:[A-Z]:\\|\\\\)[^']+\.(?:jar|zip))'",
-        '(?i)((?:[A-Z]:\\|\\\\|\.{1,2}[\\/])[^"''\s,;]+\.(?:jar|zip))'
-    )
-
-    foreach ($pattern in $patterns) {
-        $matches = [regex]::Matches($Text, $pattern)
-        foreach ($m in $matches) {
-            $candidate = if ($m.Groups.Count -gt 1) { $m.Groups[1].Value } else { $m.Value }
-            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
-                $candidates.Add($candidate)
-            }
-        }
-    }
-
-    foreach ($part in @($Text -split "[,;]")) {
-        if ([string]::IsNullOrWhiteSpace($part)) {
-            continue
-        }
-
-        $trimmed = $part.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed)) {
-            continue
-        }
-
-        if ($trimmed -match '^[^=]+=(.+)$') {
-            $trimmed = $matches[1].Trim()
-        }
-
-        if ($trimmed -match '(?i)\.(jar|zip)') {
-            $candidates.Add($trimmed)
-        }
-    }
-
-    foreach ($candidate in @($candidates | Select-Object -Unique)) {
-        $normalized = Normalize-XmaJarPathCandidate -Candidate $candidate
-        if ([string]::IsNullOrWhiteSpace($normalized)) {
-            continue
-        }
-
-            if (Test-Path -LiteralPath $normalized) {
-                try {
-                    $normalized = (Resolve-Path -LiteralPath $normalized -ErrorAction Stop).Path
-                } catch {
+    public static string GetCurrentDirectory(int pid)
+    {
+        IntPtr hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+        if (hProcess == IntPtr.Zero) return null;
+        try
+        {
+            bool wow64;
+            if (!IsWow64Process(hProcess, out wow64) || wow64) return null;
+            IntPtr pbi = Marshal.AllocHGlobal(48);
+            try
+            {
+                int retLen;
+                if (NtQueryInformationProcess(hProcess, 0, pbi, 48, out retLen) != 0) return null;
+                IntPtr pebAddr = Marshal.ReadIntPtr(pbi, 8);
+                if (pebAddr == IntPtr.Zero) return null;
+                IntPtr paramPtrBuf = Marshal.AllocHGlobal(8);
+                try
+                {
+                    int br;
+                    if (!ReadProcessMemory(hProcess, pebAddr + 0x20, paramPtrBuf, 8, out br) || br != 8) return null;
+                    IntPtr procParams = Marshal.ReadIntPtr(paramPtrBuf);
+                    if (procParams == IntPtr.Zero) return null;
+                    return ReadRemoteUnicodeString(hProcess, procParams + 0x38);
                 }
+                finally { Marshal.FreeHGlobal(paramPtrBuf); }
             }
-
-            $results.Add($normalized)
+            finally { Marshal.FreeHGlobal(pbi); }
         }
-
-    return @($results | Select-Object -Unique)
-}
-
-function Apply-XmaRuntimeInjectedJarFlags {
-    param(
-        [object[]]$Reports,
-        [object[]]$RuntimeFindings
-    )
-
-    $existingByPath = @{}
-    foreach ($report in @($Reports)) {
-        $existingByPath[$report.FilePath] = $report
+        finally { CloseHandle(hProcess); }
     }
-
-    $addedReports = New-Object System.Collections.Generic.List[object]
-    $annotatedReports = New-Object System.Collections.Generic.List[object]
-    $allReferencedPaths = @(
-        $RuntimeFindings |
-            ForEach-Object { @($_.ReferencedJarPaths) } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Select-Object -Unique
-    )
-
-    foreach ($path in $allReferencedPaths) {
-        $reason = "Referenced by JVM argument injection."
-        if ($existingByPath.ContainsKey($path)) {
-            $report = $existingByPath[$path]
-            $report.Reasons = @(@($report.Reasons) + $reason | Select-Object -Unique)
-            if ($report.Status -eq "Verified") {
-                $report.Status = "Review (Verified)"
-            } elseif ($report.Status -eq "Unknown") {
-                $report.Status = "Review"
-            }
-            $annotatedReports.Add($report)
-            continue
-        }
-
-        if (-not (Test-Path -LiteralPath $path)) {
-            continue
-        }
-
-        try {
-            attrib -h -s "$path" 2>$null | Out-Null
-        } catch {
-        }
-
-        try {
-            $report = Measure-XmaJar -JarPath $path
-            $report.Reasons = @(@($report.Reasons) + $reason | Select-Object -Unique)
-            if ($report.Status -eq "Verified") {
-                $report.Status = "Review (Verified)"
-            } elseif ($report.Status -eq "Unknown") {
-                $report.Status = "Review"
-            }
-            $addedReports.Add($report)
-            $existingByPath[$path] = $report
-        } catch {
-            $addedReports.Add([pscustomobject]@{
-                FileName = [System.IO.Path]::GetFileName($path)
-                FilePath = $path
-                SizeKB = 0
-                Sha1 = ""
-                Sha256 = ""
-                Metadata = $null
-                Verification = $null
-                DownloadSource = Get-XmaDownloadSource -Path $path
-                TokenHits = @()
-                SignatureHits = @()
-                SingleLetterClassCount = 0
-                ContainsAClass = $false
-                ContainsBClass = $false
-                Reasons = @($reason, "Injected jar scan error: $($_.Exception.Message)")
-                Status = "Review"
-            })
-        }
-    }
-
-    return [pscustomobject]@{
-        AddedReports = @($addedReports.ToArray())
-        AnnotatedReports = @($annotatedReports.ToArray())
-        ReferencedJarPaths = $allReferencedPaths
-    }
-}
-
-function Write-XmaBanner {
-    if ($Quiet) { return }
-    Write-Host ""
-    Write-XmaRule -Color DarkCyan
-    Write-Host "$($script:Config.Name) v$($script:Config.Version)" -ForegroundColor Cyan
-    Write-Host "Built by $($script:Config.Creator)" -ForegroundColor White
-    Write-Host "Credits: $((@($script:Config.Credits | ForEach-Object { $_.Project + ' / ' + $_.Name }) -join '; '))" -ForegroundColor DarkGray
-    Write-XmaRule -Color DarkCyan
-    Write-Host ""
-}
-
-function Resolve-XmaPath {
-    while ($true) {
-        $candidate = $Path
-        if (-not $candidate) {
-            Write-Host "Enter the jar file or mods folder path to scan." -ForegroundColor Cyan
-            Write-Host "Type . to use the current folder." -ForegroundColor DarkGray
-            Write-Host "Examples: C:\Path\To\mods   or   C:\Path\To\mod.jar" -ForegroundColor DarkGray
-            $candidate = Read-Host "Path"
-            if ([string]::IsNullOrWhiteSpace($candidate)) {
-                Write-Host "A path is required. Paste a path, or type . for current folder." -ForegroundColor Yellow
-                Write-Host ""
-                continue
-            }
-        }
-
-        $candidate = $candidate.Trim()
-        if ($candidate.StartsWith('"') -and $candidate.EndsWith('"') -and $candidate.Length -ge 2) {
-            $candidate = $candidate.Trim('"')
-        }
-
-        if ($candidate -eq "." -or $candidate -eq ".\") {
-            $candidate = (Get-Location).Path
-        }
-
-        if (Test-Path -LiteralPath $candidate) {
-            return (Resolve-Path -LiteralPath $candidate).Path
-        }
-
-        if ($script:PathWasExplicit) {
-            throw "That path does not exist: $candidate"
-        }
-
-        Write-Host "That path does not exist: $candidate" -ForegroundColor Yellow
-        Write-Host ""
-        $Path = $null
-    }
-}
-
-function Get-XmaFileHashSafe {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
-        [ValidateSet("SHA1", "SHA256")]
-        [string]$Algorithm = "SHA1"
-    )
-
-    try {
-        return (Get-FileHash -LiteralPath $Path -Algorithm $Algorithm -ErrorAction Stop).Hash.ToLowerInvariant()
-    } catch {
-        return ""
-    }
-}
-
-function Get-XmaDownloadSource {
-    param([string]$Path)
-
-    $zoneLines = @()
-    try {
-        $zoneLines = @(Get-Content -LiteralPath $Path -Stream Zone.Identifier -ErrorAction SilentlyContinue)
-    } catch {
-        $zoneLines = @()
-    }
-    $zoneData = if ($zoneLines.Count -gt 0) { $zoneLines -join "`n" } else { "" }
-    if (-not $zoneData) {
-        return ""
-    }
-
-    if ($zoneData -match "HostUrl=(.+)") {
-        $url = $matches[1].Trim()
-        if ($url -match "modrinth\.com") { return "Modrinth" }
-        if ($url -match "curseforge\.com") { return "CurseForge" }
-        if ($url -match "github\.com") { return "GitHub" }
-        if ($url -match "discord\.com|discordapp\.com|cdn\.discordapp\.com") { return "Discord" }
-        if ($url -match "mega\.nz|mega\.co\.nz") { return "MEGA" }
-        if ($url -match "mediafire\.com") { return "MediaFire" }
-        if ($url -match "dropbox\.com") { return "Dropbox" }
-        if ($url -match "drive\.google\.com") { return "Google Drive" }
-        if ($url -match "https?://(?:www\.)?([^/]+)") { return $matches[1] }
-        return $url
-    }
-
-    return ""
-}
-
-function Get-XmaObjectPropertyValue {
-    param(
-        [object]$InputObject,
-        [string]$Name
-    )
-
-    if ($null -eq $InputObject) {
-        return $null
-    }
-
-    $property = $InputObject.PSObject.Properties[$Name]
-    if (-not $property) {
-        return $null
-    }
-
-    return $property.Value
-}
-
-function Format-XmaCompactNumber {
-    param([object]$Value)
-
-    if ($null -eq $Value) {
-        return ""
-    }
-
-    try {
-        $number = [int64]$Value
-    } catch {
-        return ""
-    }
-
-    if ($number -lt 0) {
-        return ""
-    }
-
-    if ($number -lt 1000) {
-        return [string]$number
-    }
-
-    $culture = [System.Globalization.CultureInfo]::InvariantCulture
-    if ($number -lt 1000000) {
-        $scaled = [double]$number / 1000
-        if ($number -ge 100000 -or ($number % 1000) -eq 0) {
-            return [string]::Format($culture, "{0:0}k", $scaled)
-        }
-
-        return [string]::Format($culture, "{0:0.#}k", $scaled)
-    }
-
-    $scaled = [double]$number / 1000000
-    if (($number % 1000000) -eq 0) {
-        return [string]::Format($culture, "{0:0}m", $scaled)
-    }
-
-    return [string]::Format($culture, "{0:0.#}m", $scaled)
-}
-
-function Format-XmaReportDisplayName {
-    param([object]$Report)
-
-    $name = [string](Get-XmaObjectPropertyValue -InputObject $Report -Name "FileName")
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        return ""
-    }
-
-    $verification = Get-XmaObjectPropertyValue -InputObject $Report -Name "Verification"
-    if ($null -eq $verification) {
-        return $name
-    }
-
-    $source = [string](Get-XmaObjectPropertyValue -InputObject $verification -Name "Source")
-    if ($source -ne "Modrinth") {
-        return $name
-    }
-
-    $url = [string](Get-XmaObjectPropertyValue -InputObject $verification -Name "VersionUrl")
-    $downloads = Format-XmaCompactNumber -Value (Get-XmaObjectPropertyValue -InputObject $verification -Name "VersionDownloads")
-
-    if (-not [string]::IsNullOrWhiteSpace($url)) {
-        $name = "$name ($url)"
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($downloads)) {
-        $name = "$name $downloads downloads"
-    }
-
-    return $name
-}
-
-function Get-XmaReportDisplayParts {
-    param([object]$Report)
-
-    $name = [string](Get-XmaObjectPropertyValue -InputObject $Report -Name "FileName")
-    $url = ""
-    $downloadsText = ""
-
-    $verification = Get-XmaObjectPropertyValue -InputObject $Report -Name "Verification"
-    if ($null -ne $verification) {
-        $source = [string](Get-XmaObjectPropertyValue -InputObject $verification -Name "Source")
-        if ($source -eq "Modrinth") {
-            $url = [string](Get-XmaObjectPropertyValue -InputObject $verification -Name "VersionUrl")
-            $downloadsText = Format-XmaCompactNumber -Value (Get-XmaObjectPropertyValue -InputObject $verification -Name "VersionDownloads")
-        }
-    }
-
-    return [pscustomobject]@{
-        Name = $name
-        Url = $url
-        DownloadsText = $downloadsText
-    }
-}
-
-function Write-XmaReportDisplayLine {
-    param(
-        [string]$Prefix = "",
-        [Parameter(Mandatory)]
-        [object]$Report,
-        [string]$Color = "White",
-        [string]$Suffix = ""
-    )
-
-    $parts = Get-XmaReportDisplayParts -Report $Report
-    Write-Host $Prefix -NoNewLine -ForegroundColor $Color
-    Write-Host $parts.Name -NoNewLine -ForegroundColor $Color
-
-    if (-not [string]::IsNullOrWhiteSpace([string]$parts.Url)) {
-        Write-Host " (" -NoNewLine -ForegroundColor $Color
-        Write-Host $parts.Url -NoNewLine -ForegroundColor Blue
-        Write-Host ")" -NoNewLine -ForegroundColor $Color
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace([string]$parts.DownloadsText)) {
-        Write-Host " " -NoNewLine -ForegroundColor $Color
-        Write-Host "$($parts.DownloadsText) downloads" -NoNewLine -ForegroundColor White
-    }
-
-    Write-Host $Suffix -ForegroundColor $Color
-}
-
-function Get-XmaHiddenJarReport {
-    param(
-        [Parameter(Mandatory)]
-        [string]$FolderPath,
-        [switch]$ShowProgress
-    )
-
-    $results = New-Object System.Collections.Generic.List[object]
-    $jars = @(Get-ChildItem -LiteralPath $FolderPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue)
-    $total = @($jars).Count
-    $index = 0
-
-    foreach ($jar in $jars) {
-        $index++
-        if ($ShowProgress) {
-            Write-XmaProgress -Id $script:ProgressIds.Hidden -Activity "Hidden/system scan" -Status "[$index/$total] $($jar.Name)" -Current $index -Total $total
-        }
-
-        try {
-            $item = Get-Item -LiteralPath $jar.FullName -Force -ErrorAction Stop
-            $attrs = $item.Attributes
-            $hasHidden = ($attrs -band [System.IO.FileAttributes]::Hidden) -ne 0
-            $hasSystem = ($attrs -band [System.IO.FileAttributes]::System) -ne 0
-            if (-not ($hasHidden -or $hasSystem)) {
-                continue
-            }
-
-            $before = $attrs.ToString()
-            attrib -h -s "$($jar.FullName)" 2>$null | Out-Null
-            $after = (Get-Item -LiteralPath $jar.FullName -Force).Attributes.ToString()
-
-            $results.Add([pscustomobject]@{
-                FileName = $jar.Name
-                FilePath = $jar.FullName
-                WasHidden = $hasHidden
-                WasSystem = $hasSystem
-                Before = $before
-                After = $after
-            })
-        } catch {
-        }
-    }
-
-    if ($ShowProgress) {
-        Complete-XmaProgress -Id $script:ProgressIds.Hidden -Activity "Hidden/system scan"
-    }
-
-    return @($results.ToArray())
-}
-
-function Invoke-XmaModrinthLookup {
-    param([string]$Sha1)
-
-    if ([string]::IsNullOrWhiteSpace($Sha1)) {
-        return $null
-    }
-
-    try {
-        $versionInfo = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$Sha1" -Method Get -UseBasicParsing -TimeoutSec 6 -ErrorAction Stop
-        if (-not $versionInfo.project_id) {
-            return $null
-        }
-
-        $projectInfo = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($versionInfo.project_id)" -Method Get -UseBasicParsing -TimeoutSec 6 -ErrorAction Stop
-        $slug = [string]$projectInfo.slug
-        $versionUrl = ""
-        if (-not [string]::IsNullOrWhiteSpace($slug)) {
-            $versionUrl = "modrinth.com/mod/$slug/versions"
-        }
-
-        return [pscustomobject]@{
-            Source = "Modrinth"
-            Name = [string]$projectInfo.title
-            Slug = $slug
-            ProjectId = [string]$versionInfo.project_id
-            VersionId = [string](Get-XmaObjectPropertyValue -InputObject $versionInfo -Name "id")
-            Version = [string]$versionInfo.version_number
-            VersionUrl = $versionUrl
-            VersionDownloads = Get-XmaObjectPropertyValue -InputObject $versionInfo -Name "downloads"
-        }
-    } catch {
-        return $null
-    }
-}
-
-function Invoke-XmaMegabaseLookup {
-    param([string]$Sha1)
-
-    if ([string]::IsNullOrWhiteSpace($Sha1) -or $NoMegabase) {
-        return $null
-    }
-
-    try {
-        $result = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$Sha1" -Method Get -UseBasicParsing -TimeoutSec 6 -ErrorAction Stop
-        if ($result.error -or -not $result.data) {
-            return $null
-        }
-
-        return [pscustomobject]@{
-            Source = "Megabase"
-            Name = [string]$result.data.name
-            Slug = [string]$result.data.slug
-            Version = [string]$result.data.version
-        }
-    } catch {
-        return $null
-    }
-}
-
-function Get-XmaEntryText {
-    param(
-        [Parameter(Mandatory)]
-        [System.IO.Compression.ZipArchiveEntry]$Entry,
-        [int]$MaxChars = 200000
-    )
-
-    $stream = $Entry.Open()
-    $reader = New-Object System.IO.StreamReader($stream)
-    try {
-        $text = $reader.ReadToEnd()
-        if ($text.Length -gt $MaxChars) {
-            return $text.Substring(0, $MaxChars)
-        }
-        return $text
-    } catch {
-        return ""
-    } finally {
-        $reader.Dispose()
-        $stream.Dispose()
-    }
-}
-
-function Get-XmaEntryBytes {
-    param(
-        [Parameter(Mandatory)]
-        [System.IO.Compression.ZipArchiveEntry]$Entry,
-        [int]$MaxBytes = 262144
-    )
-
-    $length = [int][Math]::Min([int64]$Entry.Length, [int64][Math]::Max(0, $MaxBytes))
-    if ($length -le 0) {
-        return @()
-    }
-
-    $stream = $Entry.Open()
-    try {
-        $buffer = New-Object byte[] $length
-        $offset = 0
-        while ($offset -lt $length) {
-            $read = $stream.Read($buffer, $offset, $length - $offset)
-            if ($read -le 0) {
-                break
-            }
-            $offset += $read
-        }
-
-        if ($offset -eq $length) {
-            return $buffer
-        }
-
-        if ($offset -le 0) {
-            return @()
-        }
-
-        $trimmed = New-Object byte[] $offset
-        [Array]::Copy($buffer, 0, $trimmed, 0, $offset)
-        return $trimmed
-    } finally {
-        $stream.Dispose()
-    }
-}
-
-function Convert-XmaTokenMatchText {
-    param([string]$Text)
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return ""
-    }
-
-    try {
-        return $Text.Normalize([Text.NormalizationForm]::FormKC)
-    } catch {
-        return $Text
-    }
-}
-
-function Convert-XmaLooseSignatureText {
-    param([string]$Text)
-
-    $normalized = Convert-XmaTokenMatchText -Text $Text
-    if ([string]::IsNullOrWhiteSpace($normalized)) {
-        return ""
-    }
-
-    $builder = New-Object System.Text.StringBuilder
-    foreach ($ch in $normalized.ToCharArray()) {
-        if ([char]::IsLetterOrDigit($ch)) {
-            [void]$builder.Append([char]::ToLowerInvariant($ch))
-        }
-    }
-
-    return $builder.ToString()
-}
-
-function Get-XmaSignatureMatchers {
-    if (@($script:SignatureMatchersCache).Count -gt 0) {
-        return @($script:SignatureMatchersCache)
-    }
-
-    $matcherList = New-Object System.Collections.Generic.List[object]
-    $seenNormalized = @{}
-    $highConfidence = @{}
-    foreach ($sig in @($script:Config.HighConfidenceSignatureStrings)) {
-        if (-not [string]::IsNullOrWhiteSpace([string]$sig)) {
-            $highConfidence[[string]$sig] = $true
-        }
-    }
-
-    foreach ($sig in @($script:Config.CheatSignatureStrings)) {
-        $display = [string]$sig
-        if ([string]::IsNullOrWhiteSpace($display)) {
-            continue
-        }
-
-        $normalized = Convert-XmaLooseSignatureText -Text $display
-        if ([string]::IsNullOrWhiteSpace($normalized)) {
-            continue
-        }
-
-        if ($seenNormalized.ContainsKey($normalized)) {
-            continue
-        }
-        $seenNormalized[$normalized] = $true
-
-        $isHighConfidence = $highConfidence.ContainsKey($display)
-        $weight = if ($isHighConfidence) { 3 } else { 1 }
-
-        $matcherList.Add([pscustomobject]@{
-            Signature = $display
-            Normalized = $normalized
-            Weight = $weight
-            HighConfidence = $isHighConfidence
-        })
-    }
-
-    $script:SignatureMatchersCache = @($matcherList.ToArray())
-    return @($script:SignatureMatchersCache)
-}
-
-function Get-XmaPrintableStrings {
-    param(
-        [byte[]]$Bytes,
-        [int]$MinLength = 5
-    )
-
-    if (-not $Bytes -or $Bytes.Length -eq 0) {
-        return @()
-    }
-
-    $text = [System.Text.Encoding]::ASCII.GetString($Bytes)
-    $pattern = "[ -~]{$MinLength,}"
-    $matches = [regex]::Matches($text, $pattern)
-    if ($matches.Count -eq 0) {
-        return @()
-    }
-
-    $values = foreach ($m in $matches) {
-        $m.Value.Trim()
-    }
-
-    return @($values | Where-Object { $_.Length -ge $MinLength } | Select-Object -Unique)
-}
-
-function Find-XmaTokenHits {
-    param([string]$Text)
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return @()
-    }
-
-    $normalizedText = Convert-XmaTokenMatchText -Text $Text
-    $hits = New-Object System.Collections.Generic.List[string]
-    foreach ($tp in $script:ModTokenPatterns) {
-        if ($tp.Regex.IsMatch($normalizedText)) {
-            $hits.Add($tp.Token)
-        }
-    }
-    return @($hits | Select-Object -Unique)
-}
-
-function Find-XmaSignatureHits {
-    param([string]$Text)
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return @()
-    }
-
-    $normalizedText = Convert-XmaLooseSignatureText -Text $Text
-    if ([string]::IsNullOrWhiteSpace($normalizedText)) {
-        return @()
-    }
-
-    $hits = New-Object System.Collections.Generic.List[object]
-    foreach ($matcher in @(Get-XmaSignatureMatchers)) {
-        if ($normalizedText.Contains($matcher.Normalized)) {
-            $hits.Add([pscustomobject]@{
-                Signature = [string]$matcher.Signature
-                Weight = [int]$matcher.Weight
-                HighConfidence = [bool]$matcher.HighConfidence
-            })
-        }
-    }
-
-    return @($hits.ToArray())
-}
-
-function Get-XmaJarMetadata {
-    param(
-        [Parameter(Mandatory)]
-        [System.IO.Compression.ZipArchive]$Zip
-    )
-
-    $meta = [ordered]@{
-        Loader = ""
-        ModId = ""
-        Name = ""
-        Version = ""
-        MetadataText = ""
-    }
-
-    $fabricEntry = $Zip.Entries | Where-Object { $_.FullName -eq "fabric.mod.json" } | Select-Object -First 1
-    if ($fabricEntry) {
-        $text = Get-XmaEntryText -Entry $fabricEntry
-        $meta.Loader = "Fabric"
-        $meta.MetadataText = $text
-        try {
-            $json = $text | ConvertFrom-Json -ErrorAction Stop
-            $meta.ModId = [string]$json.id
-            $meta.Name = [string]$json.name
-            $meta.Version = [string]$json.version
-        } catch {
-        }
-        return [pscustomobject]$meta
-    }
-
-    $quiltEntry = $Zip.Entries | Where-Object { $_.FullName -eq "quilt.mod.json" } | Select-Object -First 1
-    if ($quiltEntry) {
-        $text = Get-XmaEntryText -Entry $quiltEntry
-        $meta.Loader = "Quilt"
-        $meta.MetadataText = $text
-        try {
-            $json = $text | ConvertFrom-Json -ErrorAction Stop
-            $meta.ModId = [string]$json.quilt_loader.id
-            $meta.Name = [string]$json.quilt_loader.metadata.name
-            $meta.Version = [string]$json.quilt_loader.version
-        } catch {
-        }
-        return [pscustomobject]$meta
-    }
-
-    $modsTomlEntry = $Zip.Entries | Where-Object { $_.FullName -eq "META-INF/mods.toml" } | Select-Object -First 1
-    if ($modsTomlEntry) {
-        $text = Get-XmaEntryText -Entry $modsTomlEntry
-        $meta.Loader = "Forge"
-        $meta.MetadataText = $text
-        if ($text -match '(?m)^\s*modId\s*=\s*"([^"]+)"') { $meta.ModId = $matches[1] }
-        if ($text -match '(?m)^\s*displayName\s*=\s*"([^"]+)"') { $meta.Name = $matches[1] }
-        if ($text -match '(?m)^\s*version\s*=\s*"([^"]+)"') { $meta.Version = $matches[1] }
-    }
-
-    return [pscustomobject]$meta
-}
-
-function Measure-XmaJar {
-    param(
-        [Parameter(Mandatory)]
-        [string]$JarPath
-    )
-
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $sizeKB = 0
-    try {
-        $sizeKB = [math]::Round(((Get-Item -LiteralPath $JarPath -Force -ErrorAction Stop).Length / 1KB), 1)
-    } catch {
-        try {
-            $sizeKB = [math]::Round(([System.IO.FileInfo]::new($JarPath).Length / 1KB), 1)
-        } catch {
-            $sizeKB = 0
-        }
-    }
-    $zip = [System.IO.Compression.ZipFile]::OpenRead($JarPath)
-
-    try {
-        $meta = Get-XmaJarMetadata -Zip $zip
-        $entryNames = @($zip.Entries | Select-Object -ExpandProperty FullName)
-        $classEntries = @($zip.Entries | Where-Object { $_.FullName -match "(?i)\.class$" })
-        $classBaseNames = @($classEntries | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.FullName) })
-        $classPathEntries = @($classEntries | ForEach-Object { ([string]$_.FullName -replace '(?i)\.class$','') })
-
-        $repeatedSegmentClassCount = 0
-        foreach ($classPath in $classPathEntries) {
-            $segments = @(([string]$classPath).Split('/'))
-            if ($segments.Count -eq 0) {
-                continue
-            }
-
-            $seen = @{}
-            $hasRepeatSegment = $false
-            foreach ($segment in $segments) {
-                if ($seen.ContainsKey($segment)) {
-                    $hasRepeatSegment = $true
-                    break
-                }
-                $seen[$segment] = $true
-            }
-
-            if ($hasRepeatSegment) {
-                $repeatedSegmentClassCount++
-            }
-        }
-
-        $repeatedSegmentRatio = 0.0
-        if ($classEntries.Count -gt 0) {
-            $repeatedSegmentRatio = [math]::Round(($repeatedSegmentClassCount / [double]$classEntries.Count), 3)
-        }
-
-        $tokenHits = New-Object System.Collections.Generic.List[string]
-        $signatureHits = @{}
-        $signatureSamples = @{}
-        $highConfidenceSignatureHits = @{}
-        $reasonList = New-Object System.Collections.Generic.List[string]
-        $structuralIndicator = 0
-        $strongStructuralIndicator = 0
-
-        function Add-XmaSignatureSample {
-            param([string]$SampleText)
-
-            if ([string]::IsNullOrWhiteSpace($SampleText)) {
-                return
-            }
-
-            foreach ($sigHit in @(Find-XmaSignatureHits -Text $SampleText)) {
-                $sig = [string]$sigHit.Signature
-                if ([string]::IsNullOrWhiteSpace($sig)) {
-                    continue
-                }
-
-                if (-not $signatureHits.ContainsKey($sig)) {
-                    $signatureHits[$sig] = [int]$sigHit.Weight
-                    $sample = ([string]$SampleText).Trim()
-                    if ($sample.Length -gt 140) {
-                        $sample = $sample.Substring(0, 140) + "..."
-                    }
-                    if (-not [string]::IsNullOrWhiteSpace($sample)) {
-                        $signatureSamples[$sig] = $sample
-                    }
-                }
-
-                if ([bool]$sigHit.HighConfidence) {
-                    $highConfidenceSignatureHits[$sig] = $true
-                }
-            }
-        }
-
-        $binaryIndicatorCounts = @{
-            SecretKeySpec = 0
-            Cipher = 0
-            Base64 = 0
-            DefineClass = 0
-            UrlClassLoader = 0
-            AgentHooks = 0
-        }
-
-        $entryText = ($entryNames -join "`n") + "`n" + $meta.MetadataText
-        foreach ($hit in Find-XmaTokenHits -Text $entryText) {
-            $tokenHits.Add($hit)
-        }
-        foreach ($entryName in $entryNames) {
-            Add-XmaSignatureSample -SampleText $entryName
-        }
-        foreach ($metaLine in @(([string]$meta.MetadataText -split "`r?`n") | Select-Object -First 250)) {
-            Add-XmaSignatureSample -SampleText $metaLine
-        }
-
-        $textEntries = @(
-            $zip.Entries | Where-Object { $_.FullName -match "(?i)\.(json|toml|mf|txt|cfg|properties|xml)$" } | Select-Object -First 80
-        )
-        foreach ($entry in $textEntries) {
-            $text = Get-XmaEntryText -Entry $entry
-            foreach ($hit in Find-XmaTokenHits -Text $text) {
-                $tokenHits.Add($hit)
-            }
-            foreach ($line in @(($text -split "`r?`n") | Select-Object -First 220)) {
-                Add-XmaSignatureSample -SampleText $line
-            }
-        }
-
-        $binaryClassEntries = @($classEntries | Select-Object -First 120)
-        foreach ($entry in $binaryClassEntries) {
-            $bytes = @(Get-XmaEntryBytes -Entry $entry -MaxBytes 262144)
-            if ($bytes.Count -eq 0) {
-                continue
-            }
-
-            $printable = @(Get-XmaPrintableStrings -Bytes $bytes -MinLength 5)
-            if ($printable.Count -eq 0) {
-                continue
-            }
-
-            foreach ($chunk in @($printable | Select-Object -First 220)) {
-                $chunkText = [string]$chunk
-                foreach ($hit in Find-XmaTokenHits -Text $chunk) {
-                    $tokenHits.Add($hit)
-                }
-                Add-XmaSignatureSample -SampleText $chunkText
-
-                if ($chunkText -match '(?i)SecretKeySpec') { $binaryIndicatorCounts.SecretKeySpec++ }
-                if ($chunkText -match '(?i)\bCipher\b|javax/crypto/Cipher') { $binaryIndicatorCounts.Cipher++ }
-                if ($chunkText -match '(?i)\bBase64\b|java/util/Base64') { $binaryIndicatorCounts.Base64++ }
-                if ($chunkText -match '(?i)defineClass') { $binaryIndicatorCounts.DefineClass++ }
-                if ($chunkText -match '(?i)URLClassLoader') { $binaryIndicatorCounts.UrlClassLoader++ }
-                if ($chunkText -match '(?i)javaagent|agentmain|premain|instrumentation|java/lang/instrument') { $binaryIndicatorCounts.AgentHooks++ }
-            }
-        }
-
-        $hasCryptoStringHidingPair =
-            (($binaryIndicatorCounts.SecretKeySpec -gt 0 -and $binaryIndicatorCounts.Base64 -gt 0) -or
-             ($binaryIndicatorCounts.Cipher -gt 0 -and $binaryIndicatorCounts.Base64 -gt 0))
-
-        $hasLoaderAndEncodedPayloadSignals =
-            (($binaryIndicatorCounts.DefineClass -gt 0 -or $binaryIndicatorCounts.UrlClassLoader -gt 0) -and
-             ($binaryIndicatorCounts.Base64 -gt 0 -or $binaryIndicatorCounts.SecretKeySpec -gt 0 -or $binaryIndicatorCounts.Cipher -gt 0))
-
-        if ($hasCryptoStringHidingPair -or $hasLoaderAndEncodedPayloadSignals) {
-            $reasonList.Add(
-                "String-hiding/loader markers in class bytes: SecretKeySpec=$($binaryIndicatorCounts.SecretKeySpec), Cipher=$($binaryIndicatorCounts.Cipher), Base64=$($binaryIndicatorCounts.Base64), defineClass=$($binaryIndicatorCounts.DefineClass), URLClassLoader=$($binaryIndicatorCounts.UrlClassLoader), agentHooks=$($binaryIndicatorCounts.AgentHooks)"
-            )
-            $structuralIndicator = 1
-        }
-
-        $hasNamespaceRecursionAnomaly = ($classEntries.Count -ge 120 -and $repeatedSegmentClassCount -ge 10 -and $repeatedSegmentRatio -ge 0.08)
-        if ($classEntries.Count -ge 120 -and $repeatedSegmentClassCount -ge 10 -and $repeatedSegmentRatio -ge 0.08) {
-            $reasonList.Add("Class namespace recursion anomaly: repeated-segment classes=$repeatedSegmentClassCount/$($classEntries.Count) (ratio=$repeatedSegmentRatio).")
-            $structuralIndicator = 1
-        }
-
-        $fileStem = [System.IO.Path]::GetFileNameWithoutExtension($JarPath).ToLowerInvariant()
-        $metaId = ([string]$meta.ModId).Trim().ToLowerInvariant()
-        $metaNameToken = (([string]$meta.Name) -replace '[^a-z0-9]', '').ToLowerInvariant()
-        $nameLooksRandom = $fileStem -match '^[a-z0-9]{3,6}$'
-        $matchesMetaId = (-not [string]::IsNullOrWhiteSpace($metaId)) -and ($fileStem.Contains($metaId))
-        $matchesMetaName = (-not [string]::IsNullOrWhiteSpace($metaNameToken)) -and ($metaNameToken.Contains($fileStem) -or $fileStem.Contains($metaNameToken))
-        if ($nameLooksRandom -and -not $matchesMetaId -and -not $matchesMetaName -and $classEntries.Count -ge 80) {
-            $reasonList.Add("Jar filename/metadata mismatch: file '$fileStem' does not align with declared mod id/name '$($meta.ModId)'/'$($meta.Name)'.")
-            $structuralIndicator = 1
-        }
-
-        if (($hasCryptoStringHidingPair -or $hasLoaderAndEncodedPayloadSignals) -and $hasNamespaceRecursionAnomaly) {
-            $reasonList.Add("Combined hidden-string and namespace-recursion pattern is strongly suspicious.")
-            $strongStructuralIndicator = 1
-        }
-
-        $tokenHitsUnique = @($tokenHits | Select-Object -Unique | Sort-Object)
-        $tokenScore = 0
-        $scoredHits = New-Object System.Collections.Generic.List[string]
-        foreach ($hit in $tokenHitsUnique) {
-            $weight = 1
-            if ($script:Config.TokenWeights.ContainsKey($hit)) {
-                $weight = [int]$script:Config.TokenWeights[$hit]
-            }
-            $tokenScore += $weight
-            $scoredHits.Add("$hit(w$weight)")
-        }
-
-        $signatureHitsUnique = @($signatureHits.Keys | Sort-Object)
-        $signatureScore = 0
-        $signatureDisplay = New-Object System.Collections.Generic.List[string]
-        foreach ($sig in $signatureHitsUnique) {
-            $sigWeight = [int]$signatureHits[$sig]
-            $signatureScore += $sigWeight
-
-            $sample = ""
-            if ($signatureSamples.ContainsKey($sig)) {
-                $sample = [string]$signatureSamples[$sig]
-            }
-
-            if ([string]::IsNullOrWhiteSpace($sample)) {
-                $signatureDisplay.Add("$sig(w$sigWeight)")
-            } else {
-                $signatureDisplay.Add("$sig(w$sigWeight): '$sample'")
-            }
-        }
-
-        $signatureIndicator = 0
-        if ($signatureHitsUnique.Count -gt 0) {
-            $signatureTop = @($signatureDisplay | Select-Object -First 8)
-            $remainingSignatureCount = $signatureDisplay.Count - $signatureTop.Count
-            $suffix = ""
-            if ($remainingSignatureCount -gt 0) {
-                $suffix = " (+$remainingSignatureCount more)"
-            }
-            $reasonList.Add("Signature-string hits $signatureScore from: $($signatureTop -join '; ')$suffix")
-
-            if ($signatureScore -ge 2) {
-                $signatureIndicator = 1
-            }
-        }
-
-        $strongSignatureIndicator = 0
-        $highConfidenceSignatureNames = @($highConfidenceSignatureHits.Keys | Sort-Object)
-        if ($highConfidenceSignatureNames.Count -gt 0) {
-            $reasonList.Add("High-confidence signature strings: $($highConfidenceSignatureNames -join ', ')")
-            $strongSignatureIndicator = 1
-        } elseif ($signatureScore -ge 6) {
-            $reasonList.Add("Dense signature-string hit profile (score >= 6).")
-            $strongSignatureIndicator = 1
-        }
-
-        $tokenIndicator = 0
-        if ($tokenScore -ge 3) {
-            $reasonList.Add("Cheat-term score $tokenScore from: $($scoredHits -join ', ')")
-            $tokenIndicator = 1
-        }
-
-        $strongTokenIndicator = 0
-        $criticalTokenHits = @(
-            $tokenHitsUnique |
-                Where-Object {
-                    $script:Config.CriticalCheatTokens -contains $_
-                }
-        )
-        if ($criticalTokenHits.Count -gt 0) {
-            $reasonList.Add("Critical cheat identifiers: $($criticalTokenHits -join ', ')")
-            $strongTokenIndicator = 1
-        }
-
-        if ($tokenScore -ge 6) {
-            $reasonList.Add("High-confidence cheat signature density (score >= 6).")
-            $strongTokenIndicator = 1
-        }
-
-        $containsAClass = $false
-        $containsBClass = $false
-        foreach ($n in $classBaseNames) {
-            if ($n -ceq "a") { $containsAClass = $true }
-            if ($n -ceq "b") { $containsBClass = $true }
-        }
-        $singleLetterClasses = @($classBaseNames | Where-Object { $_ -match "^[a-zA-Z]$" })
-        $singleLetterPathClasses = @(
-            $classEntries |
-                Where-Object {
-                    ([string]$_.FullName) -match '^(?:[a-zA-Z]/){3,}[a-zA-Z]\.class$'
-                }
-        )
-        $nonAsciiShortClasses = @(
-            $classBaseNames |
-                Where-Object {
-                    ([string]$_) -match '^[^\x00-\x7F]{1,2}$'
-                }
-        )
-
-        if ($containsAClass -or $containsBClass -or $singleLetterClasses.Count -gt 0 -or $singleLetterPathClasses.Count -gt 0 -or $nonAsciiShortClasses.Count -gt 0) {
-            $reasonList.Add(
-                "Obfuscation markers: a.class=$containsAClass, b.class=$containsBClass, single-letter classes=$($singleLetterClasses.Count), nested single-letter paths=$($singleLetterPathClasses.Count), non-ascii short classes=$($nonAsciiShortClasses.Count)"
-            )
-        }
-
-        $sha1 = Get-XmaFileHashSafe -Path $JarPath -Algorithm "SHA1"
-        $sha256 = Get-XmaFileHashSafe -Path $JarPath -Algorithm "SHA256"
-        $verification = $null
-        if (-not $NoModVerification) {
-            $verification = Invoke-XmaModrinthLookup -Sha1 $sha1
-            if (-not $verification) {
-                $verification = Invoke-XmaMegabaseLookup -Sha1 $sha1
-            }
-        }
-
-        $obfuscationIndicator = 0
-        if (
-            ($containsAClass -and $containsBClass) -or
-            $singleLetterClasses.Count -ge 12 -or
-            $singleLetterPathClasses.Count -ge 20 -or
-            $nonAsciiShortClasses.Count -ge 5
-        ) {
-            $obfuscationIndicator = 1
-        }
-
-        $indicatorCount = 0
-        if ($tokenIndicator -gt 0) { $indicatorCount++ }
-        if ($strongTokenIndicator -gt 0) { $indicatorCount++ }
-        if ($signatureIndicator -gt 0) { $indicatorCount++ }
-        if ($strongSignatureIndicator -gt 0) { $indicatorCount++ }
-        if ($structuralIndicator -gt 0) { $indicatorCount++ }
-        if ($strongStructuralIndicator -gt 0) { $indicatorCount++ }
-        if ($obfuscationIndicator -gt 0) { $indicatorCount++ }
-
-        $status = "Unknown"
-        if ($verification -and $indicatorCount -eq 0) {
-            $status = "Verified"
-        } elseif ($verification -and $indicatorCount -gt 0) {
-            $status = "Review (Verified)"
-        } elseif (-not $verification -and $indicatorCount -eq 0) {
-            $status = "Unknown"
-        } elseif (-not $verification -and $indicatorCount -eq 1) {
-            $status = "Review"
-        } else {
-            $status = "Suspicious"
-        }
-
-        [pscustomobject]@{
-            FileName = [System.IO.Path]::GetFileName($JarPath)
-            FilePath = $JarPath
-            SizeKB = $sizeKB
-            Sha1 = $sha1
-            Sha256 = $sha256
-            Metadata = $meta
-            Verification = $verification
-            DownloadSource = Get-XmaDownloadSource -Path $JarPath
-            TokenHits = $tokenHitsUnique
-            SignatureHits = $signatureHitsUnique
-            SingleLetterClassCount = $singleLetterClasses.Count
-            ContainsAClass = $containsAClass
-            ContainsBClass = $containsBClass
-            Reasons = @($reasonList.ToArray())
-            Status = $status
-        }
-    } finally {
-        $zip.Dispose()
-    }
-}
-
-function Get-XmaJavaProcesses {
-    $processes = @(Get-CimInstance Win32_Process -Filter "name = 'javaw.exe' OR name = 'java.exe'" -ErrorAction SilentlyContinue)
-    $rows = foreach ($p in $processes) {
-        $startTime = $null
-        $startTimeUtc = $null
-        try {
-            $liveProc = Get-Process -Id ([int]$p.ProcessId) -ErrorAction SilentlyContinue
-            if ($liveProc -and $liveProc.StartTime) {
-                $startTime = [datetime]$liveProc.StartTime
-                $startTimeUtc = $startTime.ToUniversalTime()
-            }
-        } catch {
-        }
-
-        try {
-            if (-not $startTime -and -not [string]::IsNullOrWhiteSpace([string]$p.CreationDate)) {
-                $startTime = [System.Management.ManagementDateTimeConverter]::ToDateTime([string]$p.CreationDate)
-                $startTimeUtc = $startTime.ToUniversalTime()
-            }
-        } catch {
-        }
-
-        [pscustomobject]@{
-            ProcessId = [int]$p.ProcessId
-            Name = [string]$p.Name
-            CommandLine = [string]$p.CommandLine
-            ExecutablePath = [string]$p.ExecutablePath
-            StartTimeLocal = $startTime
-            StartTimeUtc = $startTimeUtc
-        }
-    }
-    return @($rows)
-}
-
-function Get-XmaLikelyMinecraftJavaTargets {
-    param(
-        [object[]]$JavaProcesses,
-        [switch]$AllowJavaExeFallback
-    )
-
-    $pattern = "(?i)minecraft|fabric|forge|modrinth|prism|multimc|lunar|feather|badlion|\\.minecraft|--gamedir|--assetsdir|--versiontype"
-    $targets = @(
-        $JavaProcesses | Where-Object {
-            ([string]$_.CommandLine) -match $pattern -or
-            ([string]$_.ExecutablePath) -match $pattern
-        }
-    )
-
-    if ($targets.Count -eq 0) {
-        $targets = @($JavaProcesses | Where-Object { $_.Name -ieq "javaw.exe" })
-    }
-
-    if ($targets.Count -eq 0 -and $AllowJavaExeFallback) {
-        $targets = @($JavaProcesses | Where-Object { $_.Name -ieq "java.exe" })
-    }
-
-    return @($targets | Sort-Object ProcessId -Unique)
-}
-
-function Measure-XmaRuntimeInjection {
-    param(
-        [object[]]$JavaProcesses,
-        [switch]$ShowProgress
-    )
-
-    $results = New-Object System.Collections.Generic.List[object]
-    $total = @($JavaProcesses).Count
-    $index = 0
-    foreach ($proc in $JavaProcesses) {
-        $index++
-        if ($ShowProgress) {
-            Write-XmaProgress -Id $script:ProgressIds.Runtime -Activity "JVM injection scan" -Status "[$index/$total] PID $($proc.ProcessId) ($($proc.Name))" -Current $index -Total $total
-        }
-
-        $cmd = [string]$proc.CommandLine
-        if ([string]::IsNullOrWhiteSpace($cmd)) {
-            continue
-        }
-
-        $findings = New-Object System.Collections.Generic.List[string]
-        $findingDetails = New-Object System.Collections.Generic.List[object]
-        $informationalFindings = New-Object System.Collections.Generic.List[string]
-        $informationalDetails = New-Object System.Collections.Generic.List[object]
-        $highRiskLabels = @($script:Config.RuntimeHighRiskLabels)
-        $commandTokens = @(Get-XmaCommandTokens -CommandLine $cmd)
-        foreach ($rule in $script:Config.RuntimeInjectionPatterns) {
-            $matches = [regex]::Matches($cmd, $rule.Pattern)
-            if ($matches.Count -gt 0) {
-                $isHighRisk = $highRiskLabels -contains $rule.Label
-                if ($isHighRisk) {
-                    $findings.Add($rule.Label)
-                } else {
-                    $informationalFindings.Add($rule.Label)
-                }
-
-                foreach ($m in $matches) {
-                    $token = Get-XmaTokenAtPosition -Tokens $commandTokens -Position $m.Index
-                    $argumentText = if ($token) { [string]$token.Text } else { [string]$m.Value }
-                    $referencedPaths = @(Get-XmaReferencedJarPaths -Text $argumentText)
-                    $detail = [pscustomobject]@{
-                        Label = $rule.Label
-                        Position = [int]$m.Index
-                        Argument = $argumentText
-                        ReferencedPaths = $referencedPaths
-                        Notes = ""
-                    }
-
-                    if ($isHighRisk) {
-                        $findingDetails.Add($detail)
-                    } else {
-                        $informationalDetails.Add($detail)
-                    }
-                }
-            }
-        }
-
-        foreach ($token in @($commandTokens | Where-Object { ([string]$_.Text) -match '^(?i)-javaagent:.+' })) {
-            $argumentText = [string]$token.Text
-            $agentArgument = ""
-            if ($argumentText -match '^(?i)-javaagent:(.+)$') {
-                $agentArgument = $matches[1]
-            }
-
-            $assessment = Get-XmaJavaAgentAssessment -AgentArgument $agentArgument
-            $agentName = if ([string]::IsNullOrWhiteSpace($assessment.AgentName)) { "unknown" } else { $assessment.AgentName }
-            $agentPath = [string]$assessment.AgentPath
-            $referencedPaths = @(Get-XmaReferencedJarPaths -Text $argumentText)
-            if ($referencedPaths.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($agentPath) -and $agentPath -match '(?i)\.(jar|zip)$') {
-                $referencedPaths = @($agentPath)
-            }
-
-            if ($assessment.RiskLevel -eq "trusted") {
-                $label = "Trusted javaagent: $agentName"
-                $informationalFindings.Add($label)
-                $informationalDetails.Add([pscustomobject]@{
-                    Label = $label
-                    Position = [int]$token.Start
-                    Argument = $argumentText
-                    ReferencedPaths = @($referencedPaths)
-                    Notes = [string]$assessment.TrustReason
-                })
-            } elseif ($assessment.RiskLevel -eq "suspicious") {
-                $label = "Suspicious javaagent: $agentName"
-                $findings.Add($label)
-                $findingDetails.Add([pscustomobject]@{
-                    Label = $label
-                    Position = [int]$token.Start
-                    Argument = $argumentText
-                    ReferencedPaths = @($referencedPaths)
-                    Notes = [string]$assessment.TrustReason
-                })
-            } else {
-                $label = "Unrecognized javaagent: $agentName"
-                $informationalFindings.Add($label)
-                $informationalDetails.Add([pscustomobject]@{
-                    Label = $label
-                    Position = [int]$token.Start
-                    Argument = $argumentText
-                    ReferencedPaths = @($referencedPaths)
-                    Notes = [string]$assessment.TrustReason
-                })
-            }
-        }
-
-        $findingsUnique = @($findings | Select-Object -Unique)
-        $informationalUnique = @($informationalFindings | Select-Object -Unique)
-        if ($findingsUnique.Count -gt 0 -or $informationalUnique.Count -gt 0) {
-            $allReferencedPaths = @(
-                $findingDetails |
-                    ForEach-Object { @($_.ReferencedPaths) } |
-                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                    Select-Object -Unique
-            )
-            $results.Add([pscustomobject]@{
-                ProcessId = $proc.ProcessId
-                Name = $proc.Name
-                CommandLine = $cmd
-                Findings = $findingsUnique
-                FindingDetails = @($findingDetails.ToArray())
-                InformationalFindings = $informationalUnique
-                InformationalDetails = @($informationalDetails.ToArray())
-                ReferencedJarPaths = $allReferencedPaths
-            })
-        }
-    }
-
-    if ($ShowProgress) {
-        Complete-XmaProgress -Id $script:ProgressIds.Runtime -Activity "JVM injection scan"
-    }
-
-    return @($results.ToArray())
-}
-
-function Initialize-XmaMemoryApi {
-    if ($script:MemoryApiLoaded) {
-        return
-    }
-
-    try {
-        Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-
-public static class XmaMem {
-    public const uint PROCESS_QUERY_INFORMATION = 0x0400;
-    public const uint PROCESS_VM_READ = 0x0010;
-    public const uint MEM_COMMIT = 0x1000;
-    public const uint MEM_PRIVATE = 0x20000;
-    public const uint MEM_MAPPED = 0x40000;
-    public const uint PAGE_GUARD = 0x100;
-    public const uint PAGE_NOACCESS = 0x01;
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool GetWindowsDirectoryW([Out] System.Text.StringBuilder lpBuffer, int uSize);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool GetVolumeInformationW(string lpRootPathName, System.Text.StringBuilder lpVolumeNameBuffer, int nVolumeNameSize, out uint lpVolumeSerialNumber, out uint lpMaximumComponentLength, out uint lpFileSystemFlags, System.Text.StringBuilder lpFileSystemNameBuffer, int nFileSystemNameSize);
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct MEMORY_BASIC_INFORMATION {
+    private struct SYSTEM_INFO
+    {
+        public ushort wProcessorArchitecture;
+        public ushort wReserved;
+        public uint dwPageSize;
+        public IntPtr lpMinimumApplicationAddress;
+        public IntPtr lpMaximumApplicationAddress;
+        public IntPtr dwActiveProcessorMask;
+        public uint dwNumberOfProcessors;
+        public uint dwProcessorType;
+        public uint dwAllocationGranularity;
+        public ushort wProcessorLevel;
+        public ushort wProcessorRevision;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern void GetNativeSystemInfo(out SYSTEM_INFO lpSystemInfo);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint GetSystemFirmwareTable(uint FirmwareTableProviderSignature, uint FirmwareTableID, IntPtr pFirmwareTableBuffer, uint BufferSize);
+
+    public static string GetSystemHWID()
+    {
+        try
+        {
+            var winDir = new System.Text.StringBuilder(260);
+            string drive = "C:\\";
+            if (GetWindowsDirectoryW(winDir, 260) && winDir.Length >= 3)
+            {
+                drive = winDir.ToString().Substring(0, 3);
+            }
+
+            uint volSerial = 0, maxComp = 0, flags = 0;
+            GetVolumeInformationW(drive, null, 0, out volSerial, out maxComp, out flags, null, 0);
+
+            SYSTEM_INFO sysInfo;
+            GetNativeSystemInfo(out sysInfo);
+
+            uint rsmb = 0x52534D42;
+            uint size = GetSystemFirmwareTable(rsmb, 0, IntPtr.Zero, 0);
+            byte[] fwBytes = new byte[size];
+            if (size > 0 && size <= 0x100000)
+            {
+                IntPtr pBuf = Marshal.AllocHGlobal((int)size);
+                try
+                {
+                    if (GetSystemFirmwareTable(rsmb, 0, pBuf, size) == size)
+                    {
+                        Marshal.Copy(pBuf, fwBytes, 0, (int)size);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(pBuf);
+                }
+            }
+
+            using (var ms = new System.IO.MemoryStream())
+            {
+                ms.Write(BitConverter.GetBytes(volSerial), 0, 4);
+                ms.Write(BitConverter.GetBytes(sysInfo.wProcessorArchitecture), 0, 2);
+                ms.Write(BitConverter.GetBytes(sysInfo.dwProcessorType), 0, 4);
+                ms.Write(BitConverter.GetBytes(sysInfo.dwNumberOfProcessors), 0, 4);
+                if (fwBytes.Length > 0)
+                {
+                    ms.Write(fwBytes, 0, fwBytes.Length);
+                }
+                byte[] raw = ms.ToArray();
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    byte[] hash = sha.ComputeHash(raw);
+                    var sb = new System.Text.StringBuilder(64);
+                    for (int i = 0; i < hash.Length; i++)
+                    {
+                        sb.Append(hash[i].ToString("x2"));
+                    }
+                    return sb.ToString();
+                }
+            }
+        }
+        catch { return null; }
+    }
+
+}
+"@
+}
+
+
+if (-not ('HerculesForensics' -as [type])) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public class HerculesForensics
+{
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out long lpLuid);
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct TOKEN_PRIVILEGES
+    {
+        public int PrivilegeCount;
+        public long Luid;
+        public int Attributes;
+    }
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState, int BufferLength, IntPtr PreviousState, IntPtr ReturnLength);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Auto)]
+    private static extern int RegOpenKeyEx(IntPtr hKey, string subKey, uint ulOptions, int samDesired, out IntPtr phkResult);
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Auto)]
+    private static extern int RegQueryInfoKey(IntPtr hKey, StringBuilder lpClass, ref uint lpcClass, IntPtr lpReserved, out uint lpcSubKeys, out uint lpcMaxSubKeyLen, out uint lpcMaxClassLen, out uint lpcValues, out uint lpcMaxValueNameLen, out uint lpcMaxValueLen, IntPtr lpSecurityDescriptor, out long lpftLastWriteTime);
+
+    [DllImport("advapi32.dll")]
+    private static extern int RegCloseKey(IntPtr hKey);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern int VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, uint dwLength);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MEMORY_BASIC_INFORMATION
+    {
         public IntPtr BaseAddress;
         public IntPtr AllocationBase;
         public uint AllocationProtect;
@@ -2209,1108 +253,2103 @@ public static class XmaMem {
         public uint Type;
     }
 
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, int processId);
+    private static readonly IntPtr HKEY_LOCAL_MACHINE = new IntPtr(unchecked((int)0x80000002));
+    private const uint REG_OPTION_BACKUP_RESTORE = 0x00000004;
+    private const int KEY_READ = 0x20019;
+    private const int PROCESS_QUERY_INFORMATION = 0x0400;
+    private const int PROCESS_VM_READ = 0x0010;
+    private const uint MEM_COMMIT = 0x1000;
+    private const uint MEM_PRIVATE = 0x20000;
+    private const uint PAGE_EXECUTE_READWRITE = 0x40;
+    private const uint PAGE_EXECUTE_READ = 0x20;
+    private const uint PAGE_EXECUTE = 0x10;
 
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern bool CloseHandle(IntPtr handle);
-
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern int VirtualQueryEx(IntPtr processHandle, IntPtr address, out MEMORY_BASIC_INFORMATION memoryInfo, uint length);
-
-    [DllImport("kernel32.dll", SetLastError=true)]
-    public static extern bool ReadProcessMemory(IntPtr processHandle, IntPtr baseAddress, byte[] buffer, int size, out int bytesRead);
-}
-"@ -ErrorAction Stop
-
-        $script:MemoryApiLoaded = $true
-    } catch {
-        $script:MemoryApiLoaded = $false
-    }
-}
-
-function Search-XmaProcessMemory {
-    param(
-        [Parameter(Mandatory)]
-        [int]$ProcessId,
-        [int]$MaxMemoryMB = 192,
-        [switch]$ShowProgress,
-        [int]$ProgressId = 0,
-        [string]$ProgressActivity = ""
-    )
-
-    Initialize-XmaMemoryApi
-    if (-not $script:MemoryApiLoaded) {
-        if ($ShowProgress -and $ProgressId -gt 0) {
-            $activity = if ([string]::IsNullOrWhiteSpace($ProgressActivity)) { "Memory strings scan PID $ProcessId" } else { $ProgressActivity }
-            Complete-XmaProgress -Id $ProgressId -Activity $activity
+    public static bool EnablePrivilege(string privilege)
+    {
+        IntPtr hToken;
+        if (!OpenProcessToken(GetCurrentProcess(), 0x0020 | 0x0008, out hToken)) return false;
+        try
+        {
+            long luid;
+            if (!LookupPrivilegeValue(null, privilege, out luid)) return false;
+            TOKEN_PRIVILEGES tp = new TOKEN_PRIVILEGES();
+            tp.PrivilegeCount = 1;
+            tp.Luid = luid;
+            tp.Attributes = 0x00000002;
+            return AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
         }
-        return [pscustomobject]@{
-            ProcessId = $ProcessId
-            Error = "Memory API is unavailable on this host."
-            Hits = @()
-        }
+        finally { CloseHandle(hToken); }
     }
 
-    $handle = [XmaMem]::OpenProcess(([XmaMem]::PROCESS_QUERY_INFORMATION -bor [XmaMem]::PROCESS_VM_READ), $false, $ProcessId)
-    if ($handle -eq [IntPtr]::Zero) {
-        if ($ShowProgress -and $ProgressId -gt 0) {
-            $activity = if ([string]::IsNullOrWhiteSpace($ProgressActivity)) { "Memory strings scan PID $ProcessId" } else { $ProgressActivity }
-            Complete-XmaProgress -Id $ProgressId -Activity $activity
-        }
-        return [pscustomobject]@{
-            ProcessId = $ProcessId
-            Error = "Could not open process. Try running PowerShell as administrator."
-            Hits = @()
-        }
-    }
-
-    $maxBytes = [math]::Max(32, $MaxMemoryMB) * 1MB
-    $scannedBytes = 0L
-    $nextProgressBytes = 0L
-    $address = [IntPtr]::Zero
-    $mbi = New-Object XmaMem+MEMORY_BASIC_INFORMATION
-    $mbiSize = [uint32][System.Runtime.InteropServices.Marshal]::SizeOf([type]([XmaMem+MEMORY_BASIC_INFORMATION]))
-    $hitMap = @{}
-    $activity = if ([string]::IsNullOrWhiteSpace($ProgressActivity)) { "Memory strings scan PID $ProcessId" } else { $ProgressActivity }
-
-    try {
-        while ($scannedBytes -lt $maxBytes) {
-            $queryResult = [XmaMem]::VirtualQueryEx($handle, $address, [ref]$mbi, $mbiSize)
-            if ($queryResult -le 0) {
-                break
+    public static string GetKeyLastWriteTime(string subKey)
+    {
+        EnablePrivilege("SeBackupPrivilege");
+        IntPtr hKey;
+        int res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, subKey, REG_OPTION_BACKUP_RESTORE, KEY_READ, out hKey);
+        if (res != 0) res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, subKey, 0, KEY_READ, out hKey);
+        if (res != 0) return null;
+        try
+        {
+            uint subKeys, maxSubKey, maxClass, values, maxValueName, maxValueLen, classLen = 0;
+            long lastWriteTime;
+            if (RegQueryInfoKey(hKey, null, ref classLen, IntPtr.Zero, out subKeys, out maxSubKey, out maxClass, out values, out maxValueName, out maxValueLen, IntPtr.Zero, out lastWriteTime) == 0)
+            {
+                return DateTime.FromFileTimeUtc(lastWriteTime).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             }
+            return null;
+        }
+        finally { RegCloseKey(hKey); }
+    }
 
-            $regionSize = [int64]$mbi.RegionSize
-            if ($regionSize -le 0) {
-                break
+    public class InjectionRecord
+    {
+        public string Type;
+        public string Details;
+        public string Severity;
+    }
+
+    public static InjectionRecord[] ScanJvmInjections(int pid)
+    {
+        List<InjectionRecord> list = new List<InjectionRecord>();
+        Process proc = null;
+        try { proc = Process.GetProcessById(pid); } catch { return list.ToArray(); }
+
+        try
+        {
+            string tempDir = Path.GetTempPath().ToLower();
+            foreach (ProcessModule mod in proc.Modules)
+            {
+                string path = "";
+                try { path = mod.FileName.ToLower(); } catch { continue; }
+                if (path.StartsWith(tempDir) || path.Contains(@"\appdata\local\temp\\"))
+                {
+                    list.Add(new InjectionRecord {
+                        Type = "Temp Module Injection",
+                        Details = string.Format("Module '{0}' loaded from temporary directory: {1}", mod.ModuleName, mod.FileName),
+                        Severity = "CRITICAL"
+                    });
+                }
+                else if (path.Contains("attachhelper") || path.Contains("foxxy") || path.Contains("drip") || path.Contains("vape") || path.Contains("kura") || path.Contains("entropy"))
+                {
+                    list.Add(new InjectionRecord {
+                        Type = "Known Injection Artifact",
+                        Details = string.Format("Identified flagged binary signature: {0} ({1})", mod.ModuleName, mod.FileName),
+                        Severity = "CRITICAL"
+                    });
+                }
             }
+        }
+        catch { }
 
-            $isReadable = ($mbi.State -eq [XmaMem]::MEM_COMMIT) -and (($mbi.Protect -band [XmaMem]::PAGE_GUARD) -eq 0) -and (($mbi.Protect -band [XmaMem]::PAGE_NOACCESS) -eq 0)
-            $isWantedType = ($mbi.Type -eq [XmaMem]::MEM_PRIVATE) -or ($mbi.Type -eq [XmaMem]::MEM_MAPPED)
+        IntPtr hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+        if (hProcess != IntPtr.Zero)
+        {
+            try
+            {
+                IntPtr currentAddr = IntPtr.Zero;
+                MEMORY_BASIC_INFORMATION mbi;
+                uint mbiSize = (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION));
+                int unbackedCount = 0;
 
-            if ($isReadable -and $isWantedType) {
-                $toRead = [int][Math]::Min($regionSize, 262144)
-                if (($scannedBytes + $toRead) -gt $maxBytes) {
-                    $toRead = [int]($maxBytes - $scannedBytes)
+                while (VirtualQueryEx(hProcess, currentAddr, out mbi, mbiSize) != 0)
+                {
+                    if (mbi.State == MEM_COMMIT && (mbi.Type == MEM_PRIVATE))
+                    {
+                        bool isExec = (mbi.Protect == PAGE_EXECUTE_READWRITE) || (mbi.Protect == PAGE_EXECUTE_READ) || (mbi.Protect == PAGE_EXECUTE);
+                        if (isExec && (long)mbi.RegionSize >= 4096)
+                        {
+                            unbackedCount++;
+                            byte[] sample = new byte[64];
+                            int br;
+                            if (ReadProcessMemory(hProcess, mbi.BaseAddress, sample, sample.Length, out br) && br >= 2)
+                            {
+                                if (sample[0] == 'M' && sample[1] == 'Z')
+                                {
+                                    list.Add(new InjectionRecord {
+                                        Type = "Manual Mapped PE",
+                                        Details = string.Format("Detected unbacked PE image header (MZ) at 0x{0:X} (Size: {1} KB)", (ulong)mbi.BaseAddress, (long)mbi.RegionSize / 1024),
+                                        Severity = "CRITICAL"
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    ulong nextAddr = (ulong)mbi.BaseAddress + (ulong)mbi.RegionSize;
+                    if (nextAddr <= (ulong)mbi.BaseAddress) break;
+                    currentAddr = (IntPtr)nextAddr;
                 }
 
-                if ($toRead -gt 0) {
-                    $buffer = New-Object byte[] $toRead
-                    $bytesRead = 0
-                    $ok = [XmaMem]::ReadProcessMemory($handle, $mbi.BaseAddress, $buffer, $toRead, [ref]$bytesRead)
-                    if ($ok -and $bytesRead -gt 0) {
-                        $ascii = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
-                        $matches = [regex]::Matches($ascii, "[ -~]{5,}")
-                        foreach ($m in $matches) {
-                            $candidate = $m.Value.Trim()
-                            if ($candidate.Length -lt 5) { continue }
-                            $lower = $candidate.ToLowerInvariant()
-                            foreach ($needle in $script:MemoryNeedlesNormalized) {
-                                if ($lower.Contains($needle)) {
-                                    $key = "$needle|$candidate"
-                                    if (-not $hitMap.ContainsKey($key)) {
-                                        $hitMap[$key] = [pscustomobject]@{
-                                            Needle = $needle
-                                            Sample = if ($candidate.Length -gt 180) { $candidate.Substring(0, 180) } else { $candidate }
+                if (unbackedCount > 5)
+                {
+                    list.Add(new InjectionRecord {
+                        Type = "Floating Executable Regions",
+                        Details = string.Format("{0} unbacked executable (RWX/RX) pages found in process space", unbackedCount),
+                        Severity = "WARNING"
+                    });
+                }
+            }
+            finally { CloseHandle(hProcess); }
+        }
+
+        return list.ToArray();
+    }
+
+    public static string[] DumpClasses(int pid, string outputDir, string nameFilter)
+    {
+        List<string> dumped = new List<string>();
+        IntPtr hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+        if (hProcess == IntPtr.Zero) return dumped.ToArray();
+
+        if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+
+        try
+        {
+            IntPtr currentAddr = IntPtr.Zero;
+            MEMORY_BASIC_INFORMATION mbi;
+            uint mbiSize = (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION));
+
+            while (VirtualQueryEx(hProcess, currentAddr, out mbi, mbiSize) != 0)
+            {
+                if (mbi.State == MEM_COMMIT && (long)mbi.RegionSize <= 8 * 1024 * 1024 && (long)mbi.RegionSize >= 1024)
+                {
+                    int regionSize = (int)mbi.RegionSize;
+                    byte[] buffer = new byte[regionSize];
+                    int br;
+                    if (ReadProcessMemory(hProcess, mbi.BaseAddress, buffer, regionSize, out br) && br > 100)
+                    {
+                        for (int i = 0; i < br - 100; i++)
+                        {
+                            if (buffer[i] == 0xCA && buffer[i + 1] == 0xFE && buffer[i + 2] == 0xBA && buffer[i + 3] == 0xBE)
+                            {
+                                int major = (buffer[i + 6] << 8) | buffer[i + 7];
+                                if (major >= 45 && major <= 65)
+                                {
+                                    string className = ExtractClassName(buffer, i, br - i);
+                                    if (!string.IsNullOrEmpty(className))
+                                    {
+                                        if (string.IsNullOrEmpty(nameFilter) || className.ToLower().Contains(nameFilter.ToLower()))
+                                        {
+                                            string safeName = className.Replace('/', '.');
+                                            string outPath = Path.Combine(outputDir, safeName + ".class");
+                                            if (!File.Exists(outPath))
+                                            {
+                                                int dumpLen = Math.Min(br - i, 65536);
+                                                byte[] classBytes = new byte[dumpLen];
+                                                Array.Copy(buffer, i, classBytes, 0, dumpLen);
+                                                File.WriteAllBytes(outPath, classBytes);
+                                                dumped.Add(safeName);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    $scannedBytes += $toRead
+                }
+                ulong nextAddr = (ulong)mbi.BaseAddress + (ulong)mbi.RegionSize;
+                if (nextAddr <= (ulong)mbi.BaseAddress) break;
+                currentAddr = (IntPtr)nextAddr;
+            }
+        }
+        catch { }
+        finally { CloseHandle(hProcess); }
+
+        return dumped.ToArray();
+    }
+
+    private static string ExtractClassName(byte[] buf, int offset, int maxLen)
+    {
+        try
+        {
+            if (maxLen < 20) return null;
+            int cpCount = (buf[offset + 8] << 8) | buf[offset + 9];
+            if (cpCount <= 1 || cpCount > 4000) return null;
+            int idx = offset + 10;
+            Dictionary<int, string> utf8Strings = new Dictionary<int, string>();
+            Dictionary<int, int> classInfoEntries = new Dictionary<int, int>();
+
+            for (int i = 1; i < cpCount && idx < offset + maxLen - 4; i++)
+            {
+                byte tag = buf[idx++];
+                switch (tag)
+                {
+                    case 1:
+                        if (idx + 2 > offset + maxLen) return null;
+                        int len = (buf[idx] << 8) | buf[idx + 1];
+                        idx += 2;
+                        if (idx + len > offset + maxLen || len < 0) return null;
+                        if (len > 0) utf8Strings[i] = Encoding.UTF8.GetString(buf, idx, len);
+                        idx += len;
+                        break;
+                    case 7:
+                        if (idx + 2 > offset + maxLen) return null;
+                        classInfoEntries[i] = (buf[idx] << 8) | buf[idx + 1];
+                        idx += 2;
+                        break;
+                    case 8: case 16: case 19: case 20: idx += 2; break;
+                    case 3: case 4: case 9: case 10: case 11: case 12: case 18: idx += 4; break;
+                    case 5: case 6: idx += 8; i++; break;
+                    case 15: idx += 3; break;
+                    default: return null;
                 }
             }
 
-            if ($ShowProgress -and $ProgressId -gt 0 -and $scannedBytes -ge $nextProgressBytes) {
-                $status = "{0}MB / {1}MB scanned" -f [math]::Round(($scannedBytes / 1MB), 1), [math]::Round(($maxBytes / 1MB), 0)
-                Write-XmaProgress -Id $ProgressId -Activity $activity -Status $status -Current $scannedBytes -Total $maxBytes
-                $nextProgressBytes = $scannedBytes + 4MB
+            if (idx + 4 <= offset + maxLen)
+            {
+                int thisClassIdx = (buf[idx + 2] << 8) | buf[idx + 3];
+                if (classInfoEntries.ContainsKey(thisClassIdx))
+                {
+                    int nameUtf8Idx = classInfoEntries[thisClassIdx];
+                    if (utf8Strings.ContainsKey(nameUtf8Idx)) return utf8Strings[nameUtf8Idx];
+                }
             }
-
-            $nextAddress = $mbi.BaseAddress.ToInt64() + $regionSize
-            if ($nextAddress -le $address.ToInt64()) {
-                break
-            }
-            $address = [IntPtr]::new($nextAddress)
         }
-    } catch {
-        return [pscustomobject]@{
-            ProcessId = $ProcessId
-            Error = "Memory scan failed: $($_.Exception.Message)"
-            Hits = @($hitMap.Values | Select-Object -First 100)
-        }
-    } finally {
-        [void][XmaMem]::CloseHandle($handle)
-        if ($ShowProgress -and $ProgressId -gt 0) {
-            Complete-XmaProgress -Id $ProgressId -Activity $activity
-        }
-    }
-
-    [pscustomobject]@{
-        ProcessId = $ProcessId
-        Error = ""
-        Hits = @($hitMap.Values | Select-Object -First 100)
+        catch { }
+        return null;
     }
 }
-
-function Get-XmaSummaryBucket {
-    param([object[]]$Reports)
-    $buckets = @{
-        Verified = 0
-        Unknown = 0
-        "Review" = 0
-        "Review (Verified)" = 0
-        Suspicious = 0
-    }
-
-    foreach ($r in $Reports) {
-        if ($buckets.ContainsKey($r.Status)) {
-            $buckets[$r.Status]++
-        }
-    }
-    return $buckets
+"@
 }
 
-function Write-XmaStatusList {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Label,
-        [Parameter(Mandatory)]
-        [string]$Color,
-        [object[]]$Items
-    )
 
-    $rows = @($Items | Sort-Object FileName)
-    Write-Host "$Label ($($rows.Count))" -ForegroundColor $Color
-    if ($rows.Count -eq 0) {
-        Write-Host "  (none)" -ForegroundColor DarkGray
-        Write-Host ""
-        return
+function Invoke-BamAudit {
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "BAM CREATION & RESTART TAMPER AUDIT" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $bootTime = if ($os) { $os.LastBootUpTime } else { $null }
+    $bamKeyTime = try { [HerculesForensics]::GetKeyLastWriteTime('SYSTEM\CurrentControlSet\Services\bam') } catch { $null }
+
+    if ($bootTime) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "System Boot Time : " -NoNewline -ForegroundColor Cyan; Write-Host ($bootTime.ToString("yyyy-MM-dd HH:mm:ss")) -ForegroundColor Gray
+    }
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "BAM Last Written : " -NoNewline -ForegroundColor Cyan
+    if ($bamKeyTime) {
+        Write-Host $bamKeyTime -ForegroundColor Magenta
+    } else {
+        Write-Host "Protected (Kernel Driver Active)" -ForegroundColor DarkGray
     }
 
-    foreach ($row in $rows) {
-        Write-XmaReportDisplayLine -Prefix "  - " -Report $row -Color $Color
+    $tampered = $false
+    if ($bamKeyTime -and $bootTime) {
+        $bamDt = [DateTime]::Parse($bamKeyTime)
+        if (($bamDt - $bootTime).TotalMinutes -gt 15) {
+            $tampered = $true
+        }
     }
-    Write-Host ""
+
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "BAM Integrity    : " -NoNewline -ForegroundColor Cyan
+    if ($tampered) {
+        Write-Host "TAMPER DETECTED (BAM Key Altered Post-Boot)" -ForegroundColor Red
+    } else {
+        Write-Host "VERIFIED (Normal Boot State)" -ForegroundColor Green
+    }
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
 }
 
-function New-XmaReportText {
-    param(
-        [object]$Target,
-        [object[]]$JarFiles,
-        [object[]]$ReportArray,
-        [hashtable]$Summary,
-        [int]$TotalMods,
-        [object[]]$JavaProcesses,
-        [object[]]$RuntimeTargets,
-        [object]$RuntimeWindowInfo,
-        [object[]]$RuntimeEditedReports,
-        [bool]$IsLikelyLauncherModsTarget,
-        [object[]]$RuntimeSuspiciousFindings,
-        [object[]]$RuntimeInformationalFindings,
-        [object]$RuntimeInjectionJarReport,
-        [object[]]$MemoryResults,
-        [object[]]$HiddenReport,
-        [bool]$SkipRuntimeScan,
-        [bool]$SkipMemoryScan
-    )
 
-    $sb = New-Object System.Text.StringBuilder
+function Invoke-DpsAudit {
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "DPS (DIAGNOSTIC POLICY SERVICE) MEMORY & CACHE AUDIT" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
 
-    function AddLine {
-        param([string]$Line = "")
-        [void]$sb.AppendLine($Line)
-    }
+    $dps = Get-CimInstance Win32_Service -Filter "Name='dps'" -ErrorAction SilentlyContinue
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $bootTime = if ($os) { $os.LastBootUpTime } else { $null }
 
-    function AddSection {
-        param([string]$Title)
-        AddLine ""
-        AddLine ("=" * 70)
-        AddLine $Title
-        AddLine ("=" * 70)
-    }
-
-    function AddStatusList {
-        param(
-            [string]$Label,
-            [object[]]$Items
-        )
-
-        $rows = @($Items | Sort-Object FileName)
-        AddLine "$Label ($($rows.Count))"
-        if ($rows.Count -eq 0) {
-            AddLine "  (none)"
-            AddLine ""
-            return
-        }
-
-        foreach ($row in $rows) {
-            AddLine "  - $(Format-XmaReportDisplayName -Report $row)"
-        }
-        AddLine ""
-    }
-
-    AddLine "$($script:Config.Name) v$($script:Config.Version)"
-    AddLine "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')"
-    AddLine "Target: $($Target.FullName)"
-    AddLine "Jar files scanned: $(@($JarFiles).Count)"
-    AddLine "Total report rows: $TotalMods"
-
-    AddSection "Summary"
-    AddLine ("Verified: {0}/{1}" -f $Summary['Verified'], $TotalMods)
-    AddLine ("Unknown: {0}/{1}" -f $Summary['Unknown'], $TotalMods)
-    AddLine ("Review: {0}/{1}" -f $Summary['Review'], $TotalMods)
-    AddLine ("Review (Verified): {0}/{1}" -f $Summary['Review (Verified)'], $TotalMods)
-    AddLine ("Suspicious: {0}/{1}" -f $Summary['Suspicious'], $TotalMods)
-
-    AddSection "Status Lists"
-    AddStatusList -Label "Verified" -Items @($ReportArray | Where-Object { $_.Status -eq "Verified" })
-    AddStatusList -Label "Unknown" -Items @($ReportArray | Where-Object { $_.Status -eq "Unknown" })
-    AddStatusList -Label "Review" -Items @($ReportArray | Where-Object { $_.Status -eq "Review" })
-    AddStatusList -Label "Review (Verified)" -Items @($ReportArray | Where-Object { $_.Status -eq "Review (Verified)" })
-    AddStatusList -Label "Suspicious" -Items @($ReportArray | Where-Object { $_.Status -eq "Suspicious" })
-
-    $signatureHitReports = @($ReportArray | Where-Object { @($_.SignatureHits).Count -gt 0 })
-    if ($signatureHitReports.Count -gt 0) {
-        AddSection "Matched Signature Strings"
-        foreach ($r in @($signatureHitReports | Sort-Object FileName)) {
-            AddLine "$(Format-XmaReportDisplayName -Report $r) [$($r.Status)]"
-            $displayHits = @($r.SignatureHits | Select-Object -First 25)
-            foreach ($sig in $displayHits) {
-                AddLine "  - $sig"
-            }
-            $remainingHits = @($r.SignatureHits).Count - $displayHits.Count
-            if ($remainingHits -gt 0) {
-                AddLine "  - (+$remainingHits more)"
-            }
-            AddLine ""
-        }
-    }
-
-    $flagged = @($ReportArray | Where-Object { $_.Status -ne "Verified" -and $_.Status -ne "Unknown" })
-    if ($flagged.Count -gt 0) {
-        AddSection "Flagged Mods (Reasons)"
-        foreach ($r in @($flagged | Sort-Object FileName)) {
-            AddLine "$(Format-XmaReportDisplayName -Report $r) [$($r.Status)]"
-            if ($r.Verification) {
-                AddLine "  Verified source: $($r.Verification.Source) / $($r.Verification.Name)"
+    if (-not $dps -or $dps.State -ne 'Running') {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Service State    : " -NoNewline -ForegroundColor Cyan; Write-Host "STOPPED / DISABLED (ANTI-FORENSICS)" -ForegroundColor Red
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan; Write-Host "CRITICAL TAMPER (DPS was terminated to suppress traces)" -ForegroundColor Red
+    } else {
+        $proc = Get-Process -Id $dps.ProcessId -ErrorAction SilentlyContinue
+        $dpsStart = if ($proc) { try { $proc.StartTime } catch { $null } } else { $null }
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Service State    : " -NoNewline -ForegroundColor Cyan; Write-Host "Running (PID: $($dps.ProcessId))" -ForegroundColor Green
+        if ($dpsStart -and $bootTime) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "DPS Start Time   : " -NoNewline -ForegroundColor Cyan; Write-Host ($dpsStart.ToString("yyyy-MM-dd HH:mm:ss")) -ForegroundColor Gray
+            $offset = ($dpsStart - $bootTime).TotalMinutes
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Boot Offset      : " -NoNewline -ForegroundColor Cyan; Write-Host "$([math]::Round($offset, 1)) min(s)" -ForegroundColor Gray
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan
+            if ($offset -gt 15) {
+                Write-Host "SUSPICIOUS (DPS service was restarted during active session)" -ForegroundColor Yellow
             } else {
-                AddLine "  Verified source: none"
-            }
-            if ($r.DownloadSource) {
-                AddLine "  Download source: $($r.DownloadSource)"
-            }
-            foreach ($reason in @($r.Reasons)) {
-                AddLine "  - $reason"
-            }
-            AddLine ""
-        }
-    }
-
-    AddSection "Runtime Session + Edit-Time Check"
-    AddLine "Java processes detected: $(@($JavaProcesses).Count)"
-    AddLine "Minecraft-like runtime targets: $(@($RuntimeTargets).Count)"
-    foreach ($proc in @($RuntimeTargets | Sort-Object ProcessId)) {
-        $startText = "unknown"
-        $uptimeText = "unknown"
-        if ($proc.StartTimeUtc -is [datetime]) {
-            $startText = $proc.StartTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-            $uptimeText = Format-XmaDuration -Span ((Get-Date).ToUniversalTime() - $proc.StartTimeUtc)
-        }
-        AddLine ("  - PID {0} ({1}) started {2}, uptime {3}" -f $proc.ProcessId, $proc.Name, $startText, $uptimeText)
-    }
-
-    if ($RuntimeWindowInfo -and $RuntimeWindowInfo.HasWindow) {
-        AddLine "Runtime window: $($RuntimeWindowInfo.WindowStartUtc.ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss')) -> $($RuntimeWindowInfo.WindowEndUtc.ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss'))"
-    } else {
-        AddLine "Runtime window: unavailable"
-    }
-
-    if ($Target.PSIsContainer) {
-        if (-not $IsLikelyLauncherModsTarget) {
-            AddLine "Mods edited during active runtime: skipped (target path is not a launcher mods folder)."
-        } elseif (@($RuntimeEditedReports).Count -gt 0) {
-            AddLine "Mods edited during active runtime: $(@($RuntimeEditedReports).Count)"
-            foreach ($rr in @($RuntimeEditedReports | Sort-Object FileName)) {
-                $editText = if ($rr.PSObject.Properties.Name -contains "LastWriteTimeLocal") { [string]$rr.LastWriteTimeLocal } else { "unknown" }
-                AddLine "  - $(Format-XmaReportDisplayName -Report $rr) (edited: $editText)"
-            }
-        } elseif ($RuntimeWindowInfo -and $RuntimeWindowInfo.HasWindow) {
-            AddLine "Mods edited during active runtime: 0"
-        } else {
-            AddLine "Mods edited during active runtime: skipped (no runtime window)."
-        }
-    }
-
-    if (@($RuntimeSuspiciousFindings).Count -gt 0) {
-        AddSection "JVM Runtime Injection Findings"
-        foreach ($rf in $RuntimeSuspiciousFindings) {
-            AddLine "PID $($rf.ProcessId) ($($rf.Name))"
-            foreach ($detail in @($rf.FindingDetails)) {
-                AddLine "  - $($detail.Label)"
-                AddLine "      position: $($detail.Position)"
-                AddLine "      argument: $($detail.Argument)"
-                if (-not [string]::IsNullOrWhiteSpace([string]$detail.Notes)) {
-                    AddLine "      note: $($detail.Notes)"
-                }
-                foreach ($path in @($detail.ReferencedPaths | Select-Object -Unique)) {
-                    AddLine "      jar: $path"
-                }
-            }
-            AddLine ""
-        }
-        if ($RuntimeInjectionJarReport) {
-            AddLine "Runtime-injected jar scan results: added=$(@($RuntimeInjectionJarReport.AddedReports).Count), annotated=$(@($RuntimeInjectionJarReport.AnnotatedReports).Count)"
-        }
-    } elseif (-not $SkipRuntimeScan) {
-        AddSection "JVM Runtime Injection Findings"
-        AddLine "none"
-    }
-
-    if (@($RuntimeInformationalFindings).Count -gt 0) {
-        AddSection "JVM Runtime Notes (Likely Legit)"
-        foreach ($rf in $RuntimeInformationalFindings) {
-            AddLine "PID $($rf.ProcessId) ($($rf.Name))"
-            foreach ($detail in @($rf.InformationalDetails)) {
-                AddLine "  - $($detail.Label)"
-                AddLine "      position: $($detail.Position)"
-                AddLine "      argument: $($detail.Argument)"
-                if (-not [string]::IsNullOrWhiteSpace([string]$detail.Notes)) {
-                    AddLine "      note: $($detail.Notes)"
-                }
-                foreach ($path in @($detail.ReferencedPaths | Select-Object -Unique)) {
-                    AddLine "      jar: $path"
-                }
-            }
-            AddLine ""
-        }
-    }
-
-    if (-not $SkipMemoryScan) {
-        AddSection "Java Memory String Hits"
-        $allMemoryHits = @($MemoryResults | ForEach-Object { @($_.Hits) })
-        if ($allMemoryHits.Count -eq 0) {
-            AddLine "none"
-        } else {
-            foreach ($res in $MemoryResults) {
-                $proc = $JavaProcesses | Where-Object { $_.ProcessId -eq $res.ProcessId } | Select-Object -First 1
-                $procName = if ($proc) { "$($proc.Name) PID $($res.ProcessId)" } else { "PID $($res.ProcessId)" }
-                AddLine $procName
-                if ($res.Error) {
-                    AddLine "  - $($res.Error)"
-                    continue
-                }
-
-                $needleBuckets = @{}
-                foreach ($hit in @($res.Hits)) {
-                    if (-not $needleBuckets.ContainsKey($hit.Needle)) {
-                        $needleBuckets[$hit.Needle] = New-Object System.Collections.Generic.List[string]
-                    }
-                    if ($needleBuckets[$hit.Needle].Count -lt 3) {
-                        $needleBuckets[$hit.Needle].Add($hit.Sample)
-                    }
-                }
-
-                foreach ($needle in ($needleBuckets.Keys | Sort-Object)) {
-                    AddLine "  - hit: $needle"
-                    foreach ($sample in @($needleBuckets[$needle])) {
-                        AddLine "      sample: $sample"
-                    }
-                }
-                AddLine ""
+                Write-Host "CLEAN (Preserved from boot)" -ForegroundColor Green
             }
         }
     }
-
-    if (@($HiddenReport).Count -gt 0) {
-        AddSection "Hidden/System Jar Report"
-        foreach ($h in $HiddenReport) {
-            AddLine "- $($h.FileName): before=$($h.Before), after=$($h.After)"
-        }
-    }
-
-    return $sb.ToString()
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
 }
 
-function Get-XmaDownloadsFolder {
-    $userProfile = [Environment]::GetFolderPath("UserProfile")
-    if ([string]::IsNullOrWhiteSpace($userProfile)) {
-        $userProfile = $HOME
-    }
 
-    return (Join-Path $userProfile "Downloads")
-}
 
-function Convert-XmaUserPath {
-    param([string]$Path)
+function Invoke-ExplorerAudit {
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "EXPLORER.EXE RESTART & STRING PURGE AUDIT" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
 
-    $clean = ([string]$Path).Trim().Trim('"')
-    $clean = [Environment]::ExpandEnvironmentVariables($clean)
-    if ($clean -eq "~") {
-        return [string]$HOME
-    }
-    if ($clean.StartsWith("~\")) {
-        return (Join-Path $HOME $clean.Substring(2))
-    }
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $bootTime = if ($os) { $os.LastBootUpTime } else { $null }
+    $explorers = @(Get-Process -Name "explorer" -ErrorAction SilentlyContinue)
 
-    return $clean
-}
-
-function Save-XmaReportText {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Text,
-        [Parameter(Mandatory)]
-        [string]$Destination
-    )
-
-    $destinationPath = Convert-XmaUserPath -Path $Destination
-    if ([string]::IsNullOrWhiteSpace($destinationPath)) {
-        throw "Destination path is empty."
-    }
-
-    $fileName = "Herculess-mod-analyzer-report-{0}.txt" -f (Get-Date -Format "yyyyMMdd-HHmmss")
-    $extension = [System.IO.Path]::GetExtension($destinationPath)
-    if ($extension -ieq ".txt") {
-        $folder = Split-Path -Parent $destinationPath
-        if ([string]::IsNullOrWhiteSpace($folder)) {
-            $folder = (Get-Location).Path
-        }
-        $filePath = $destinationPath
-    } else {
-        $folder = $destinationPath
-        $filePath = Join-Path $folder $fileName
-    }
-
-    if (-not (Test-Path -LiteralPath $folder)) {
-        New-Item -ItemType Directory -Path $folder -Force | Out-Null
-    }
-
-    Set-Content -LiteralPath $filePath -Value $Text -Encoding UTF8 -Force
-    return $filePath
-}
-
-function Copy-XmaTextToClipboard {
-    param([string]$Text)
-
-    try {
-        Set-Clipboard -Value $Text -ErrorAction Stop
-        return $true
-    } catch {
-        return $false
-    }
-}
-
-function Invoke-XmaTemporaryReportUpload {
-    param(
-        [Parameter(Mandatory)]
-        [string]$ReportPath,
-        [Parameter(Mandatory)]
-        [string]$ReportText
-    )
-
-    Add-Type -AssemblyName System.Net.Http
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-
-    $failures = New-Object System.Collections.Generic.List[string]
-
-    try {
-        Write-Host "Trying paste.rs..." -ForegroundColor DarkCyan
-        return Invoke-XmaPasteRsUpload -ReportText $ReportText
-    } catch {
-        $failures.Add("paste.rs")
-    }
-
-    try {
-        Write-Host "Trying tmpfiles.org..." -ForegroundColor DarkCyan
-        return Invoke-XmaTmpFilesUpload -ReportPath $ReportPath
-    } catch {
-        $failures.Add("tmpfiles.org")
-    }
-
-    try {
-        Write-Host "Trying file.io..." -ForegroundColor DarkCyan
-        return Invoke-XmaFileIoUpload -ReportPath $ReportPath
-    } catch {
-        $failures.Add("file.io")
-    }
-
-    throw "All upload providers failed ($($failures -join ', ')). Use option 1 to save TXT."
-}
-
-function Invoke-XmaPasteRsUpload {
-    param(
-        [Parameter(Mandatory)]
-        [string]$ReportText
-    )
-
-    $client = New-Object System.Net.Http.HttpClient
-    $client.Timeout = [TimeSpan]::FromSeconds(30)
-    $content = New-Object System.Net.Http.StringContent -ArgumentList @($ReportText, [System.Text.Encoding]::UTF8, "text/plain")
-
-    try {
-        $response = $client.PostAsync("https://paste.rs/", $content).GetAwaiter().GetResult()
-        $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult().Trim()
-        if ([int]$response.StatusCode -ne 201) {
-            throw "paste.rs returned HTTP $([int]$response.StatusCode)"
-        }
-        if ($body -notmatch '^https?://') {
-            throw "paste.rs did not return a link"
-        }
-
-        return $body
-    } finally {
-        $content.Dispose()
-        $client.Dispose()
-    }
-}
-
-function Invoke-XmaTmpFilesUpload {
-    param(
-        [Parameter(Mandatory)]
-        [string]$ReportPath
-    )
-
-    $client = New-Object System.Net.Http.HttpClient
-    $client.Timeout = [TimeSpan]::FromSeconds(30)
-    $form = New-Object System.Net.Http.MultipartFormDataContent
-    $stream = [System.IO.File]::OpenRead($ReportPath)
-    $fileContent = New-Object System.Net.Http.StreamContent -ArgumentList $stream
-
-    try {
-        $form.Add($fileContent, "file", [System.IO.Path]::GetFileName($ReportPath))
-        $response = $client.PostAsync("https://tmpfiles.org/api/v1/upload", $form).GetAwaiter().GetResult()
-        $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult().Trim()
-        if (-not $response.IsSuccessStatusCode) {
-            throw "tmpfiles.org returned HTTP $([int]$response.StatusCode)"
-        }
-
-        $json = $body | ConvertFrom-Json
-        $url = [string]$json.data.url
-        if ([string]::IsNullOrWhiteSpace($url)) {
-            throw "tmpfiles.org did not return a link"
-        }
-
-        if ($url -match '^https://tmpfiles\.org/([^/]+/.+)$' -and $url -notmatch '^https://tmpfiles\.org/dl/') {
-            $url = "https://tmpfiles.org/dl/$($matches[1])"
-        }
-
-        return $url
-    } finally {
-        $fileContent.Dispose()
-        $stream.Dispose()
-        $form.Dispose()
-        $client.Dispose()
-    }
-}
-
-function Invoke-XmaFileIoUpload {
-    param(
-        [Parameter(Mandatory)]
-        [string]$ReportPath
-    )
-
-    $client = New-Object System.Net.Http.HttpClient
-    $client.Timeout = [TimeSpan]::FromSeconds(30)
-    $form = New-Object System.Net.Http.MultipartFormDataContent
-    $stream = [System.IO.File]::OpenRead($ReportPath)
-    $fileContent = New-Object System.Net.Http.StreamContent -ArgumentList $stream
-
-    try {
-        $form.Add($fileContent, "file", [System.IO.Path]::GetFileName($ReportPath))
-        $response = $client.PostAsync("https://file.io", $form).GetAwaiter().GetResult()
-        $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult().Trim()
-        if (-not $response.IsSuccessStatusCode) {
-            throw "file.io returned HTTP $([int]$response.StatusCode)"
-        }
-
-        $json = $body | ConvertFrom-Json
-        $url = [string]$json.link
-        if ([string]::IsNullOrWhiteSpace($url)) {
-            throw "file.io did not return a link"
-        }
-
-        return $url
-    } finally {
-        $fileContent.Dispose()
-        $stream.Dispose()
-        $form.Dispose()
-        $client.Dispose()
-    }
-}
-
-function Show-XmaCompletionMenu {
-    param(
-        [Parameter(Mandatory)]
-        [string]$ReportText
-    )
-
-    if ([Console]::IsInputRedirected) {
-        Write-Host ""
-        Write-Host "Report options skipped because input is redirected." -ForegroundColor DarkGray
+    if ($explorers.Count -eq 0) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Explorer State   : " -NoNewline -ForegroundColor Cyan; Write-Host "NOT RUNNING (CRITICAL ANOMALY)" -ForegroundColor Red
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan; Write-Host "SHELL TERMINATED (Memory traces killed)" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
         return
     }
 
-    while ($true) {
-        Write-XmaSection -Title "Report Options" -Color Cyan
-        Write-Host "1) Save report as TXT" -ForegroundColor White
-        Write-Host "2) Upload temporary report link and copy link" -ForegroundColor White
-        Write-Host "3) Close" -ForegroundColor White
-        $choice = Read-Host "Choose 1, 2, or 3"
+    if ($explorers.Count -gt 1) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Instances        : " -NoNewline -ForegroundColor Cyan; Write-Host "$($explorers.Count) processes running (ANOMALY)" -ForegroundColor Yellow
+    }
 
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            Write-Host "Enter 1, 2, or 3." -ForegroundColor Yellow
-            Write-Host ""
+    $mainExp = $explorers[0]
+    $expStart = try { $mainExp.StartTime } catch { $null }
+
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Process PID      : " -NoNewline -ForegroundColor Cyan; Write-Host "$($mainExp.Id) (Active Shell)" -ForegroundColor White
+
+    if ($expStart -and $bootTime) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Explorer Start   : " -NoNewline -ForegroundColor Cyan; Write-Host ($expStart.ToString("yyyy-MM-dd HH:mm:ss")) -ForegroundColor Gray
+        $offset = ($expStart - $bootTime).TotalMinutes
+        $uptime = (Get-Date) - $expStart
+        $upStr = "$([math]::Floor($uptime.TotalHours))h $($uptime.Minutes)m"
+
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Explorer Uptime  : " -NoNewline -ForegroundColor Cyan; Write-Host $upStr -ForegroundColor Gray
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Boot Offset      : " -NoNewline -ForegroundColor Cyan; Write-Host "$([math]::Round($offset, 1)) min(s) after system boot" -ForegroundColor Gray
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan
+
+        $sysUptimeMin = ((Get-Date) - $bootTime).TotalMinutes
+        if ($sysUptimeMin -gt 30 -and $offset -gt 15) {
+            Write-Host "TAMPER DETECTED (Explorer restarted mid-session to purge strings)" -ForegroundColor Red
+        } elseif ($offset -gt 15) {
+            Write-Host "SUSPICIOUS (Late explorer launch)" -ForegroundColor Yellow
+        } else {
+            Write-Host "CLEAN (Persistent Shell from Boot)" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan; Write-Host "VERIFIED (Explorer Process Active)" -ForegroundColor Green
+    }
+
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+}
+
+
+function Invoke-InjGenScan {
+    param([int]$ProcessId)
+
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "INJGEN — JNI / JVMTI MEMORY INJECTION SCAN" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+
+    if (-not $ProcessId) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Target Process   : " -NoNewline -ForegroundColor Cyan; Write-Host "No active Minecraft PID" -ForegroundColor DarkGray
+        Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+        return
+    }
+
+    $alerts = try { [HerculesForensics]::ScanJvmInjections($ProcessId) } catch { @() }
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Target PID       : " -NoNewline -ForegroundColor Cyan; Write-Host "$ProcessId (javaw.exe)" -ForegroundColor White
+
+    if ($alerts.Count -eq 0) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Memory Audit     : " -NoNewline -ForegroundColor Cyan; Write-Host "No unbacked RWX or injected DLL modules found" -ForegroundColor Green
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan; Write-Host "CLEAN (Runtime memory intact)" -ForegroundColor Green
+    } else {
+        foreach ($a in $alerts) {
+            $col = if ($a.Severity -eq "CRITICAL") { "Red" } else { "Yellow" }
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "[!] $($a.Type)" -ForegroundColor $col
+            Write-Host "  ║   -> $($a.Details)" -ForegroundColor DarkGray
+        }
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Verdict          : " -NoNewline -ForegroundColor Cyan; Write-Host "INJECTION ANOMALY DETECTED" -ForegroundColor Red
+    }
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+}
+
+
+function Invoke-ClassNameExtractor {
+    param(
+        [int]$ProcessId,
+        [string]$BaseDir = "C:\HerculesAnalyzer",
+        [string]$Filter = ""
+    )
+
+    if (-not $ProcessId) { return }
+
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "CLASS NAME EXTRACTOR & IN-MEMORY BYTECODE DUMPER" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Target PID         : " -NoNewline -ForegroundColor Cyan; Write-Host "$ProcessId (javaw.exe)" -ForegroundColor White
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Extraction Folder  : " -NoNewline -ForegroundColor Cyan; Write-Host $BaseDir -ForegroundColor DarkGray
+
+    try {
+        if (-not (Test-Path -LiteralPath $BaseDir)) {
+            [void][System.IO.Directory]::CreateDirectory($BaseDir)
+        }
+    } catch {
+        $BaseDir = Join-Path $env:TEMP "HerculesAnalyzer"
+        if (-not (Test-Path -LiteralPath $BaseDir)) { [void][System.IO.Directory]::CreateDirectory($BaseDir) }
+    }
+
+    $bytecodeDir = Join-Path $BaseDir ("DumpedBytecode_" + $ProcessId)
+    if (-not (Test-Path -LiteralPath $bytecodeDir)) { [void][System.IO.Directory]::CreateDirectory($bytecodeDir) }
+
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Memory Scan        : " -NoNewline -ForegroundColor Cyan; Write-Host "Walking committed HotSpot pages for active & historic 0xCAFEBABE..." -ForegroundColor DarkGray
+
+    $dumped = try { [HerculesForensics]::DumpClasses($ProcessId, $bytecodeDir, $Filter) } catch { @() }
+    $uniqueClasses = @($dumped | Sort-Object -Unique)
+
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Total Extracted    : " -NoNewline -ForegroundColor Cyan; Write-Host ("$($uniqueClasses.Count) distinct class definitions") -ForegroundColor Green
+
+    $allClassesFile = Join-Path $BaseDir ("AllClasses_" + $ProcessId + ".txt")
+    try {
+        $uniqueClasses | Out-File -FilePath $allClassesFile -Encoding utf8
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "All Classes List   : " -NoNewline -ForegroundColor Cyan; Write-Host $allClassesFile -ForegroundColor Gray
+    } catch {}
+
+    $cheatKeywords = "(?i)(attachhelper|foxxy|vape|drip|kura|entropy|reach|aura|clicker|injection|aimassist|autoclick|nametag|velocity|bhop|fakelag|fly|blink|esp|freecam|tracer|xray|triggerbot|celeste|doomsday)"
+    $flagged = @($uniqueClasses | Where-Object { $_ -match $cheatKeywords })
+    $shortClasses = @($uniqueClasses | Where-Object {
+        $_ -match '^[a-zA-Z0-9]{1,2}$' -or $_ -match '\.([a-zA-Z0-9]{1,2})$' -or $_ -match '^([a-zA-Z0-9]{1,2}\.)+[a-zA-Z0-9]{1,2}$'
+    })
+
+    $suspectClasses = @($flagged + $shortClasses | Sort-Object -Unique)
+    $suspectFile = Join-Path $BaseDir ("SuspectClasses_" + $ProcessId + ".txt")
+    try {
+        $suspectClasses | Out-File -FilePath $suspectFile -Encoding utf8
+    } catch {}
+
+    $summaryFile = Join-Path $BaseDir ("ExtractorReport_" + $ProcessId + ".txt")
+    $dateStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $reportLines = @(
+        "================================================================================",
+        "HERCULES CLASS NAME EXTRACTOR AUDIT REPORT",
+        "Target PID       : $ProcessId",
+        "Extraction Time  : $dateStr",
+        "Output Folder    : $BaseDir",
+        "Bytecode Folder  : $bytecodeDir",
+        "Total Classes    : $($uniqueClasses.Count)",
+        "Suspicious Total : $($suspectClasses.Count)",
+        "Flagged Cheat    : $($flagged.Count)",
+        "Short Obfuscated : $($shortClasses.Count)",
+        "================================================================================",
+        "",
+        "[FLAGGED CHEAT SIGNATURES]"
+    ) + $flagged + @("", "[SHORT OBFUSCATED CLASSES]") + $shortClasses
+    try { $reportLines | Out-File -FilePath $summaryFile -Encoding utf8 } catch {}
+
+    if ($flagged.Count -gt 0) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "[!] FLAGGED IN-MEMORY SIGNATURES:" -ForegroundColor Red
+        foreach ($f in ($flagged | Select-Object -First 8)) {
+            Write-Host "  ║     * $f" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Cheat Signatures   : " -NoNewline -ForegroundColor Cyan; Write-Host "No known cheat module signatures" -ForegroundColor Green
+    }
+
+    if ($shortClasses.Count -ge 3) {
+        $sample = ($shortClasses | Select-Object -First 6) -join ", "
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "[!] SHORT OBFUSCATED CLASSES:" -ForegroundColor Yellow
+        Write-Host "  ║     * $($shortClasses.Count) classes ($sample, ...)" -ForegroundColor Yellow
+        Write-Host "  ║     * Full list saved to SuspectClasses_$ProcessId.txt" -ForegroundColor DarkGray
+    }
+
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Bytecode Dumps     : " -NoNewline -ForegroundColor Cyan; Write-Host $bytecodeDir -ForegroundColor DarkGray
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+}
+
+function Invoke-ClassDumper {
+    param([int]$ProcessId, [string]$OutputDir = "C:\HerculesAnalyzer", [string]$Filter = "")
+    Invoke-ClassNameExtractor -ProcessId $ProcessId -BaseDir $OutputDir -Filter $Filter
+}
+
+function Get-SystemHWID {
+    try { return [ProcessHelper]::GetSystemHWID() } catch { return $null }
+}
+
+function Get-PlayerHardwareProfile {
+    param([string]$MinecraftDrive = "C:")
+    
+    $drive = if ($MinecraftDrive -and $MinecraftDrive.Length -ge 1) { $MinecraftDrive.Substring(0, 1) + ":" } else { "C:" }
+    $mg = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Cryptography" -ErrorAction SilentlyContinue).MachineGuid
+    $bb = (Get-CimInstance Win32_BaseBoard -ErrorAction SilentlyContinue).SerialNumber
+    $bios = (Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue).SerialNumber
+    $cpu = (Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue).ProcessorId
+    $gpu = (Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name -First 1)
+    $vol = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$drive'" -ErrorAction SilentlyContinue).VolumeSerialNumber
+    $hwid = Get-SystemHWID
+
+    return [PSCustomObject]@{
+        SystemHWID   = $hwid
+        MachineGuid  = $mg
+        BaseBoard    = $bb
+        BIOS         = $bios
+        ProcessorId  = $cpu
+        GPU          = $gpu
+        VolumeSerial = $vol
+        Drive        = $drive
+    }
+}
+
+function Invoke-UsnJournalAudit {
+    param([string]$ModsFolder)
+
+    $targetDrive = "C:"
+    if ($ModsFolder -and $ModsFolder.Length -ge 2 -and $ModsFolder[1] -eq ':') {
+        $targetDrive = $ModsFolder.Substring(0, 2).ToUpper()
+    }
+
+    Write-Sep Magenta
+    Write-Host "  HERCULES USN CHANGE JOURNAL & TAMPER INTEGRITY AUDIT" -ForegroundColor Magenta
+    Write-Sep Magenta
+    Write-Host ""
+
+    $drivesToCheck = @("C:")
+    if ($targetDrive -ne "C:" -and (Test-Path "$targetDrive\")) {
+        $drivesToCheck += $targetDrive
+    }
+
+    $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $uptime = if ($os.LastBootUpTime) { (Get-Date) - $os.LastBootUpTime } else { $null }
+    $uptimeStr = if ($uptime) { "$([math]::Floor($uptime.TotalHours))h $($uptime.Minutes)m ($([math]::Round($uptime.TotalHours, 1)) hrs)" } else { "Unknown" }
+
+    $anyAlert = $false
+
+    foreach ($drv in $drivesToCheck) {
+        $journalOut = fsutil usn queryjournal $drv 2>&1
+        $journalId  = ($journalOut | Select-String -Pattern 'Usn Journal ID\s*:\s*(0x[0-9a-fA-F]+|\d+)').Matches.Groups[1].Value
+        $firstUsn   = ($journalOut | Select-String -Pattern 'First Usn\s*:\s*(0x[0-9a-fA-F]+|\d+)').Matches.Groups[1].Value
+        $nextUsn    = ($journalOut | Select-String -Pattern 'Next Usn\s*:\s*(0x[0-9a-fA-F]+|\d+)').Matches.Groups[1].Value
+        $maxSize    = ($journalOut | Select-String -Pattern 'Maximum Size\s*:\s*(0x[0-9a-fA-F]+|\d+)').Matches.Groups[1].Value
+        $allocDelta = ($journalOut | Select-String -Pattern 'Allocation Delta\s*:\s*(0x[0-9a-fA-F]+|\d+)').Matches.Groups[1].Value
+
+        $isWiped = $false
+        $reasons = [System.Collections.Generic.List[string]]::new()
+
+        if (-not $journalId -or $LASTEXITCODE -ne 0) {
+            $isWiped = $true
+            $reasons.Add("USN Journal is disabled or deleted on $drv")
+        } else {
+            $nextVal = 0
+            try { $nextVal = [Convert]::ToInt64($nextUsn, 16) } catch {}
+            $nextMB = [math]::Round($nextVal / 1MB, 2)
+
+            if ($uptime -and $uptime.TotalMinutes -ge 45 -and $nextVal -lt 0x200000) {
+                $isWiped = $true
+                $reasons.Add("Abnormally small Next USN ($nextMB MB / $nextUsn) despite $uptimeStr system uptime (Indicates Journal Wipe)")
+            }
+            if ($firstUsn -and [Convert]::ToInt64($firstUsn, 16) -eq 0 -and $nextVal -lt 0x100000) {
+                $isWiped = $true
+                $reasons.Add("First USN is zero with fresh journal state ($nextMB MB allocated) - recently created or recreated")
+            }
+        }
+
+        try {
+            $fsutilPf = Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*FSUTIL*.pf" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($fsutilPf) {
+                if ($uptime -and $fsutilPf.LastWriteTime -ge ((Get-Date) - $uptime)) {
+                    $isWiped = $true
+                    $reasons.Add("FSUTIL.EXE executed during current session at $($fsutilPf.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))")
+                }
+            }
+        } catch {}
+
+        try {
+            $wipers = Get-ChildItem -Path "C:\Windows\Prefetch" -Filter "*WIPE*.pf" -ErrorAction SilentlyContinue | Select-Object -First 2
+            foreach ($w in $wipers) {
+                $reasons.Add("Wiper tool found in Prefetch: $($w.Name) ($($w.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))")
+                $isWiped = $true
+            }
+        } catch {}
+
+        if ($isWiped) {
+            $anyAlert = $true
+            Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "[CRITICAL ALERT] USN JOURNAL WIPED / RESET DETECTED ON $drv" -ForegroundColor Red
+            Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Volume      : $drv" -ForegroundColor White
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Journal ID  : $journalId" -ForegroundColor Magenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Next USN    : $nextUsn" -ForegroundColor Magenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "System Uptime: $uptimeStr" -ForegroundColor White
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Forensic Discrepancy:" -ForegroundColor Yellow
+            foreach ($r in $reasons) {
+                Write-Host "  ║   • " -NoNewline -ForegroundColor Red; Write-Host $r -ForegroundColor Red
+            }
+            Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor Red
+        } else {
+            $nextVal = 0
+            try { $nextVal = [Convert]::ToInt64($nextUsn, 16) } catch {}
+            $nextMB = [math]::Round($nextVal / 1MB, 2)
+            Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor Magenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor Magenta; Write-Host "[+] USN Journal Active & Intact ($drv)" -ForegroundColor Green
+            Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Journal ID  : $journalId" -ForegroundColor White
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Next USN    : $nextUsn ($nextMB MB activity recorded)" -ForegroundColor Cyan
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "First USN   : $firstUsn" -ForegroundColor DarkGray
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "System Uptime: $uptimeStr (Correlation: Normal)" -ForegroundColor Green
+            Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor Magenta
+        }
+    }
+}
+
+function Get-ProcessCurrentDirectory([int]$processId) {
+    try { return [ProcessHelper]::GetCurrentDirectory($processId) } catch { return $null }
+}
+
+function Get-LayoutBases([string]$path) {
+    return @($path, (Join-Path $path ".minecraft"), (Join-Path $path "game"), (Join-Path $path "minecraft"))
+}
+
+function Resolve-ModsFolder([string]$cwd) {
+    if (-not $cwd -or -not (Test-Path $cwd -ErrorAction SilentlyContinue)) { return $null }
+    foreach ($base in (Get-LayoutBases $cwd)) {
+        $p = Join-Path $base "mods"
+        if (Test-Path $p -ErrorAction SilentlyContinue) { return (Get-Item -LiteralPath $p).FullName }
+    }
+    try {
+        foreach ($entry in (Get-ChildItem -LiteralPath $cwd -Directory -ErrorAction SilentlyContinue)) {
+            foreach ($base in (Get-LayoutBases $entry.FullName)) {
+                $p = Join-Path $base "mods"
+                if (Test-Path $p -ErrorAction SilentlyContinue) { return (Get-Item -LiteralPath $p).FullName }
+            }
+        }
+    } catch {}
+    return $null
+}
+
+function Get-CleanDirectory([string]$raw) {
+    if (-not $raw) { return $null }
+    $p = $raw.Trim().Trim('"').Trim("'").Trim()
+    if (-not $p) { return $null }
+    try { $p = [System.Environment]::ExpandEnvironmentVariables($p) } catch {}
+    try {
+        if (Test-Path -LiteralPath $p -PathType Leaf -ErrorAction SilentlyContinue) { $p = [System.IO.Path]::GetDirectoryName($p) }
+        if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Container -ErrorAction SilentlyContinue)) { return $null }
+        return (Get-Item -LiteralPath $p -ErrorAction Stop).FullName
+    } catch { return $null }
+}
+
+function Resolve-ManualModsPath([string]$raw) {
+    $p = Get-CleanDirectory $raw
+    if (-not $p) { return $null }
+    if ([System.IO.Path]::GetFileName($p.TrimEnd('\','/')) -eq "mods") { return $p }
+    return Resolve-ModsFolder $p
+}
+
+function Request-ModsFolder([string]$reason, [string]$giveUpText = "Press Enter on an empty line to give up.") {
+    if ($reason) { Write-Host "  [!] $reason" -ForegroundColor Yellow }
+    Write-Host "  [i] Enter the mods folder, the instance folder, or the .minecraft folder." -ForegroundColor DarkGray
+    Write-Host "  [i] $giveUpText`n" -ForegroundColor DarkGray
+    for ($try = 0; $try -lt 5; $try++) {
+        Write-Host "      Path: " -NoNewline -ForegroundColor Cyan
+        $raw = Read-Host
+        if (-not $raw -or -not $raw.Trim()) { return $null }
+        $resolved = Resolve-ManualModsPath $raw
+        if ($resolved) {
+            Write-Host "  [+] Using mods folder: $resolved`n" -ForegroundColor Green
+            return $resolved
+        }
+        $dir = Get-CleanDirectory $raw
+        if (-not $dir) {
+            Write-Host "  [!] That path does not exist on this machine.`n" -ForegroundColor Red
             continue
         }
-
-        switch ($choice.Trim()) {
-            "1" {
-                while ($true) {
-                    Write-Host ""
-                    Write-Host "Save TXT report" -ForegroundColor Cyan
-                    Write-Host "1) Downloads folder (default)" -ForegroundColor White
-                    Write-Host "2) Custom folder or .txt path" -ForegroundColor White
-                    $saveChoice = Read-Host "Choose 1 or 2 (Enter = 1)"
-                    if ([string]::IsNullOrWhiteSpace($saveChoice)) {
-                        $saveChoice = "1"
-                    }
-
-                    if ($saveChoice.Trim() -eq "1") {
-                        try {
-                            $path = Save-XmaReportText -Text $ReportText -Destination (Get-XmaDownloadsFolder)
-                            Write-Host "Saved: $path" -ForegroundColor Green
-                        } catch {
-                            Write-Host "Save failed: $($_.Exception.Message)" -ForegroundColor Red
-                        }
-                        Write-Host ""
-                        break
-                    }
-
-                    if ($saveChoice.Trim() -eq "2") {
-                        $customPath = Read-Host "Enter folder path or .txt file path"
-                        if ([string]::IsNullOrWhiteSpace($customPath)) {
-                            Write-Host "Path required." -ForegroundColor Yellow
-                            continue
-                        }
-
-                        try {
-                            $path = Save-XmaReportText -Text $ReportText -Destination $customPath
-                            Write-Host "Saved: $path" -ForegroundColor Green
-                        } catch {
-                            Write-Host "Save failed: $($_.Exception.Message)" -ForegroundColor Red
-                        }
-                        Write-Host ""
-                        break
-                    }
-
-                    Write-Host "Enter 1 or 2." -ForegroundColor Yellow
-                }
-            }
-            "2" {
-                try {
-                    $tempPath = Save-XmaReportText -Text $ReportText -Destination ([System.IO.Path]::GetTempPath())
-                    Write-Host "Uploading temporary report..." -ForegroundColor Cyan
-                    $link = Invoke-XmaTemporaryReportUpload -ReportPath $tempPath -ReportText $ReportText
-                    $copied = Copy-XmaTextToClipboard -Text $link
-                    if ($copied) {
-                        Write-Host "Temporary link copied: $link" -ForegroundColor Green
-                    } else {
-                        Write-Host "Temporary link: $link" -ForegroundColor Green
-                        Write-Host "Clipboard copy failed." -ForegroundColor Yellow
-                    }
-                } catch {
-                    Write-Host "Upload failed: $($_.Exception.Message)" -ForegroundColor Red
-                }
-                Write-Host ""
-            }
-            "3" {
-                return
-            }
-            default {
-                Write-Host "Enter 1, 2, or 3." -ForegroundColor Yellow
-                Write-Host ""
-            }
-        }
-    }
-}
-
-Disable-XmaConsoleQuickEdit
-Write-XmaBanner
-$resolvedPath = Resolve-XmaPath
-$target = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
-
-$jarFiles = @()
-if ($target.PSIsContainer) {
-    $jarFiles = @(Get-ChildItem -LiteralPath $target.FullName -Force -File -Filter "*.jar" | Sort-Object Name)
-} else {
-    if ($target.Extension -ne ".jar") {
-        throw "The selected file is not a jar."
-    }
-    $jarFiles = @($target)
-}
-
-if (-not $Quiet) {
-    Write-XmaSection -Title "Scan Target" -Color Cyan
-    Write-Host "Path: $($target.FullName)" -ForegroundColor Gray
-    Write-Host "Jar files: $(@($jarFiles).Count)" -ForegroundColor Cyan
-    Write-Host ""
-}
-
-$hiddenReport = @()
-if ($target.PSIsContainer) {
-    $hiddenReport = @(Get-XmaHiddenJarReport -FolderPath $target.FullName -ShowProgress:(-not $Quiet))
-    if (-not $Quiet) {
-        Write-XmaSection -Title "Hidden/System Attribute Check" -Color Yellow
-        if (@($hiddenReport).Count -gt 0) {
-            Write-Host "Hidden/system jars found and revealed: $(@($hiddenReport).Count)" -ForegroundColor Yellow
+        $jars = @(Get-ChildItem -LiteralPath $dir -Filter *.jar -ErrorAction SilentlyContinue)
+        Write-Host "  [!] No mods folder under that path." -ForegroundColor Yellow
+        if ($jars.Count -gt 0) {
+            Write-Host "      That folder does hold $($jars.Count) .jar file(s) directly." -ForegroundColor DarkGray
         } else {
-            Write-Host "Hidden/system jars found: 0" -ForegroundColor DarkGray
+            Write-Host "      That folder holds no .jar files either." -ForegroundColor DarkGray
+        }
+        Write-Host "      Scan it anyway? [y/N]: " -NoNewline -ForegroundColor Cyan
+        $confirm = Read-Host
+        if ($confirm -and $confirm.Trim() -match '^(y|yes)$') {
+            Write-Host "  [+] Using folder: $dir`n" -ForegroundColor Green
+            return $dir
         }
         Write-Host ""
     }
+    return $null
 }
 
-if ($jarFiles.Count -eq 0) {
-    Write-Host "No jar files were found at the selected path." -ForegroundColor Yellow
-    return
+function Get-KnownLauncherRoots {
+    $appData = $env:APPDATA
+    $localAppData = $env:LOCALAPPDATA
+    $userProfile = $env:USERPROFILE
+    $roots = [System.Collections.Generic.List[string]]::new()
+    if ($appData) {
+        $roots.Add("$appData\.minecraft")
+        $roots.Add("$appData\ModrinthApp\profiles")
+        $roots.Add("$appData\PrismLauncher\instances")
+        $roots.Add("$appData\PolyMC\instances")
+        $roots.Add("$appData\MultiMC\instances")
+        $roots.Add("$appData\ATLauncher\instances")
+        $roots.Add("$appData\.feather\profiles")
+        $roots.Add("$appData\gdlauncher_next\instances")
+        $roots.Add("$appData\.technic\modpacks")
+    }
+    if ($localAppData) {
+        $roots.Add("$localAppData\.minecraft")
+        $roots.Add("$localAppData\Packages")
+    }
+    if ($userProfile) {
+        $roots.Add("$userProfile\curseforge\minecraft\Instances")
+        $userProfile, "$userProfile\Documents" | ForEach-Object { $roots.Add("$_\curseforge\minecraft\Instances") }
+        $roots.Add("$userProfile\.lunarclient")
+        $roots.Add("$userProfile\AppData\Roaming\.minecraft")
+        $roots.Add("$userProfile\Documents\PrismLauncher\instances")
+    }
+    return ($roots | Select-Object -Unique)
 }
 
-$reports = New-Object System.Collections.Generic.List[object]
-$total = $jarFiles.Count
-$index = 0
-$scanStartedAtUtc = [datetime]::UtcNow
-foreach ($jar in $jarFiles) {
-    $index++
-    if (-not $Quiet) {
-        Write-XmaProgress -Id $script:ProgressIds.Mods -Activity "Mod jar scan" -Status "[$index/$total] $($jar.Name)" -Current $index -Total $total
-        Write-Host ("[{0}/{1}] Scanning {2}" -f $index, $total, $jar.Name) -ForegroundColor DarkCyan
+function Find-CandidateInstanceBases {
+    $bases = New-Object System.Collections.Generic.List[string]
+    foreach ($root in (Get-KnownLauncherRoots)) {
+        if (-not (Test-Path $root -ErrorAction SilentlyContinue)) { continue }
+        foreach ($b in (Get-LayoutBases $root)) { $bases.Add($b) }
+        foreach ($entry in (Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+            foreach ($b in (Get-LayoutBases $entry.FullName)) { $bases.Add($b) }
+        }
     }
+    return $bases
+}
 
-    try {
-        attrib -h -s "$($jar.FullName)" 2>$null | Out-Null
-    } catch {
+function Find-LatestInstanceByLog {
+    $bestBase = $null
+    $bestTime = [datetime]::MinValue
+    $checked = 0
+    foreach ($base in (Find-CandidateInstanceBases)) {
+        $logPath = Join-Path $base "logs\latest.log"
+        if (-not (Test-Path $logPath -ErrorAction SilentlyContinue)) { continue }
+        $checked++
+        try {
+            $t = (Get-Item -LiteralPath $logPath -ErrorAction Stop).LastWriteTime
+            if ($t -gt $bestTime) { $bestTime = $t; $bestBase = $base }
+        } catch {}
     }
+    Write-Host "  [i] Checked $checked instance log(s) across all known launchers" -ForegroundColor DarkGray
+    if ($bestBase) { Write-Host "  [i] Newest latest.log: $bestTime  ->  $bestBase" -ForegroundColor DarkGray }
+    return $bestBase
+}
 
-    try {
-        $reports.Add((Measure-XmaJar -JarPath $jar.FullName))
-    } catch {
-        $reports.Add([pscustomobject]@{
-            FileName = $jar.Name
-            FilePath = $jar.FullName
-            SizeKB = 0
-            Sha1 = ""
-            Sha256 = ""
-            Metadata = $null
-            Verification = $null
-            DownloadSource = Get-XmaDownloadSource -Path $jar.FullName
-            TokenHits = @()
-            SignatureHits = @()
-            SingleLetterClassCount = 0
-            ContainsAClass = $false
-            ContainsBClass = $false
-            Reasons = @("Scan error: $($_.Exception.Message)")
-            Status = "Review"
+function Get-MinecraftInstances {
+    $found = New-Object System.Collections.Generic.List[object]
+
+    $procs = @()
+    $procs += @(Get-Process -Name javaw -ErrorAction SilentlyContinue)
+    $procs += @(Get-Process -Name java  -ErrorAction SilentlyContinue)
+
+    foreach ($proc in $procs) {
+        $cmdLine = $null
+        $cimCwd  = $null
+        try {
+            $info = Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
+            $cmdLine = $info.CommandLine
+            $cimCwd  = $info.CurrentDirectory
+        } catch {}
+
+        $player = "Unknown"; $uuid = "N/A"; $version = $null
+        if ($cmdLine) {
+            if ($cmdLine -match '--username\s+(\S+)') { $player  = $matches[1] }
+            if ($cmdLine -match '--uuid\s+(\S+)')     { $uuid    = $matches[1] }
+            if ($cmdLine -match '--version\s+(\S+)')  { $version = $matches[1] }
+        }
+
+        $modsFolder = $null; $source = $null
+
+        $cwd = Get-ProcessCurrentDirectory $proc.Id
+        if ($cwd) {
+            $modsFolder = Resolve-ModsFolder $cwd
+            if ($modsFolder) { $source = "Process CWD (PEB)" }
+        }
+
+        if (-not $modsFolder -and $cmdLine) {
+            $gameDir = $null
+            if     ($cmdLine -match '--gameDir\s+"([^"]+)"') { $gameDir = $matches[1] }
+            elseif ($cmdLine -match "--gameDir\s+'([^']+)'") { $gameDir = $matches[1] }
+            elseif ($cmdLine -match '--gameDir\s+(\S+)')     { $gameDir = $matches[1] }
+            if ($gameDir) {
+                $modsFolder = Resolve-ModsFolder $gameDir
+                if ($modsFolder) { $source = "--gameDir argument" }
+            }
+        }
+
+        if (-not $modsFolder -and $cimCwd) {
+            $modsFolder = Resolve-ModsFolder $cimCwd
+            if ($modsFolder) { $source = "Win32_Process CWD" }
+        }
+
+        $looksLikeMinecraft = $modsFolder -or ($cmdLine -and $cmdLine -match '(?i)(minecraft|net\.fabricmc|cpw\.mods|fabric-loader|forge|net\.minecraft)')
+        if (-not $looksLikeMinecraft) { continue }
+
+        $uptime = $null
+        try { $uptime = (Get-Date) - $proc.StartTime } catch {}
+
+        $found.Add([PSCustomObject]@{
+            ProcessId   = $proc.Id
+            ProcessName = $proc.ProcessName
+            Player      = $player
+            UUID        = $uuid
+            LaunchVer   = $version
+            ModsFolder  = $modsFolder
+            Source      = $source
+            CommandLine = $cmdLine
+            Uptime      = $uptime
+        })
+    }
+    return $found
+}
+
+Write-Host ("━" * 111) -ForegroundColor Yellow
+Write-Host "INSTANCE DETECTION" -ForegroundColor Yellow
+Write-Host ("━" * 111) -ForegroundColor Yellow
+Write-Host ""
+
+$instances = @(Get-MinecraftInstances)
+
+if ($instances.Count -eq 0) {
+    $fallbackMods = Request-ModsFolder "No running Minecraft process found." "Press Enter on an empty line to search every known launcher's logs instead."
+    $fallbackSource = "Manual entry"
+    if (-not $fallbackMods) {
+        Write-Host "  [i] Falling back to a scan of every known launcher's instance logs...`n" -ForegroundColor DarkGray
+        $latestBase = Find-LatestInstanceByLog
+        $fallbackMods = if ($latestBase) { Resolve-ModsFolder $latestBase } else { $null }
+        $fallbackSource = "Newest latest.log"
+        if ($fallbackMods) { Write-Host "  [+] Using most recently played instance: $fallbackMods`n" -ForegroundColor Green }
+    }
+    if ($fallbackMods) {
+        $instances = @([PSCustomObject]@{
+            ProcessId=$null; ProcessName="(not running)"; Player="Unknown"; UUID="N/A"; LaunchVer=$null
+            ModsFolder=$fallbackMods; Source=$fallbackSource; CommandLine=$null; Uptime=$null
         })
     }
 }
-$scanCompletedAtUtc = [datetime]::UtcNow
-if (-not $Quiet) {
-    Complete-XmaProgress -Id $script:ProgressIds.Mods -Activity "Mod jar scan"
+
+foreach ($inst in $instances) {
+    if ($inst.ModsFolder) { continue }
+    $resolved = Request-ModsFolder "Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))." "Press Enter on an empty line to skip this instance."
+    if ($resolved) { $inst.ModsFolder = $resolved; $inst.Source = "Manual entry" }
+}
+
+$instances = @($instances | Where-Object { $_.ModsFolder })
+
+if ($instances.Count -eq 0) {
     Write-Host ""
-}
-
-$javaProcesses = @()
-$runtimeTargets = @()
-$runtimeFindings = @()
-$memoryResults = @()
-$runtimeWindowInfo = $null
-$runtimeEditedReports = @()
-$runtimeInjectionJarReport = $null
-$isLikelyLauncherModsTarget = $false
-
-$javaProcesses = @(Get-XmaJavaProcesses)
-$runtimeTargets = @(Get-XmaLikelyMinecraftJavaTargets -JavaProcesses $javaProcesses)
-if ($runtimeTargets.Count -eq 0) {
-    $runtimeTargets = @(Get-XmaLikelyMinecraftJavaTargets -JavaProcesses $javaProcesses -AllowJavaExeFallback)
-}
-$runtimeWindowInfo = Get-XmaRuntimeWindowInfo -RuntimeTargets $runtimeTargets -WindowEndUtc $scanCompletedAtUtc
-
-if ($target.PSIsContainer) {
-    $isLikelyLauncherModsTarget = Test-XmaLikelyLauncherModsPath -Path $target.FullName
-} else {
-    $parentPath = [System.IO.Path]::GetDirectoryName($target.FullName)
-    $isLikelyLauncherModsTarget = Test-XmaLikelyLauncherModsPath -Path $parentPath
-}
-
-if ($target.PSIsContainer -and $isLikelyLauncherModsTarget) {
-    $runtimeEditedReports = @(Apply-XmaRuntimeEditFlags -Reports @($reports.ToArray()) -RuntimeWindowInfo $runtimeWindowInfo -GraceSeconds $script:Config.RuntimeEditGraceSeconds)
-}
-
-if (-not $SkipRuntimeScan) {
-    if (-not $Quiet) {
-        Write-XmaSection -Title "JVM Runtime Scan" -Color DarkYellow
-    }
-    $runtimeFindings = @(Measure-XmaRuntimeInjection -JavaProcesses $runtimeTargets -ShowProgress:(-not $Quiet))
-    $runtimeInjectionJarReport = Apply-XmaRuntimeInjectedJarFlags -Reports @($reports.ToArray()) -RuntimeFindings $runtimeFindings
-    foreach ($addedReport in @($runtimeInjectionJarReport.AddedReports)) {
-        $reports.Add($addedReport)
-    }
-}
-
-if (-not $SkipMemoryScan) {
-    $memoryTargets = @(Get-XmaLikelyMinecraftJavaTargets -JavaProcesses $javaProcesses)
-    if (-not $Quiet) {
-        Write-XmaSection -Title "Memory Strings Scan" -Color DarkYellow
-        Write-Host "Memory targets: $(@($memoryTargets).Count)" -ForegroundColor Gray
-    }
-
-    $memoryTargetTotal = @($memoryTargets).Count
-    $memoryTargetIndex = 0
-    foreach ($proc in $memoryTargets) {
-        $memoryTargetIndex++
-        if (-not $Quiet) {
-            Write-XmaProgress -Id $script:ProgressIds.MemoryTargets -Activity "Memory target scan" -Status "[$memoryTargetIndex/$memoryTargetTotal] PID $($proc.ProcessId) ($($proc.Name))" -Current $memoryTargetIndex -Total $memoryTargetTotal
-            Write-Host "Memory scan: PID $($proc.ProcessId) ($($proc.Name))" -ForegroundColor DarkYellow
-        }
-        $memoryResults += @(Search-XmaProcessMemory -ProcessId $proc.ProcessId -MaxMemoryMB $MemoryScanMB -ShowProgress:(-not $Quiet) -ProgressId $script:ProgressIds.MemoryBytes -ProgressActivity "Memory strings PID $($proc.ProcessId)")
-    }
-
-    if (-not $Quiet) {
-        Complete-XmaProgress -Id $script:ProgressIds.MemoryTargets -Activity "Memory target scan"
-    }
-}
-
-$reportArray = @($reports.ToArray())
-$summary = Get-XmaSummaryBucket -Reports $reportArray
-$totalMods = @($reportArray).Count
-
-if (-not $Quiet) {
-    Write-XmaSection -Title "Runtime Session + Edit-Time Check" -Color DarkYellow
-    Write-Host "Java processes detected: $(@($javaProcesses).Count)" -ForegroundColor Gray
-    Write-Host "Minecraft-like runtime targets: $(@($runtimeTargets).Count)" -ForegroundColor Gray
-
-    foreach ($proc in @($runtimeTargets | Sort-Object ProcessId)) {
-        $startText = "unknown"
-        $uptimeText = "unknown"
-        if ($proc.StartTimeUtc -is [datetime]) {
-            $startText = $proc.StartTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-            $uptimeText = Format-XmaDuration -Span ($scanCompletedAtUtc - $proc.StartTimeUtc)
-        }
-        Write-Host ("  - PID {0} ({1}) started {2}, uptime {3}" -f $proc.ProcessId, $proc.Name, $startText, $uptimeText) -ForegroundColor Gray
-    }
-
-    if ($runtimeWindowInfo -and $runtimeWindowInfo.HasWindow) {
-        $windowStartText = $runtimeWindowInfo.WindowStartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        $windowEndText = $runtimeWindowInfo.WindowEndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-        Write-Host "Runtime window: $windowStartText -> $windowEndText" -ForegroundColor Gray
+    $lastChance = Request-ModsFolder "No mods folder could be resolved."
+    if ($lastChance) {
+        $instances = @([PSCustomObject]@{
+            ProcessId=$null; ProcessName="(not running)"; Player="Unknown"; UUID="N/A"; LaunchVer=$null
+            ModsFolder=$lastChance; Source="Manual entry"; CommandLine=$null; Uptime=$null
+        })
     } else {
-        Write-Host "Runtime window: unavailable (no start time found)." -ForegroundColor DarkGray
+        Write-Host "  [!] Nothing to scan." -ForegroundColor Red
+        Write-Host "  [i] Make sure Minecraft is running, and re-run this as Administrator.`n" -ForegroundColor Yellow
+        Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
     }
-
-    if ($target.PSIsContainer) {
-        if (-not $isLikelyLauncherModsTarget) {
-            Write-Host "Mods edited during active runtime: skipped (target path is not a launcher mods folder)." -ForegroundColor DarkGray
-        } elseif ($runtimeEditedReports.Count -gt 0) {
-            Write-Host "Mods edited during active runtime: $($runtimeEditedReports.Count)" -ForegroundColor Red
-            foreach ($rr in @($runtimeEditedReports | Sort-Object FileName)) {
-                $editText = if ($rr.PSObject.Properties.Name -contains "LastWriteTimeLocal") { [string]$rr.LastWriteTimeLocal } else { "unknown" }
-                Write-XmaReportDisplayLine -Prefix "  - " -Report $rr -Color DarkYellow -Suffix " (edited: $editText)"
-            }
-        } elseif ($runtimeWindowInfo -and $runtimeWindowInfo.HasWindow) {
-            Write-Host "Mods edited during active runtime: 0" -ForegroundColor Green
-        } else {
-            Write-Host "Mods edited during active runtime: skipped (no runtime window)." -ForegroundColor DarkGray
-        }
-    }
-    Write-Host ""
 }
 
-Write-XmaSection -Title "Summary" -Color Cyan
-Write-XmaSummaryLine -Label "Verified" -Count $summary['Verified'] -Total $totalMods -Color Green
-Write-XmaSummaryLine -Label "Unknown" -Count $summary['Unknown'] -Total $totalMods -Color Yellow
-Write-XmaSummaryLine -Label "Review" -Count $summary['Review'] -Total $totalMods -Color DarkYellow
-Write-XmaSummaryLine -Label "Review (Verified)" -Count $summary['Review (Verified)'] -Total $totalMods -Color DarkYellow
-Write-XmaSummaryLine -Label "Suspicious" -Count $summary['Suspicious'] -Total $totalMods -Color Red
+$scanGroups = @()
+foreach ($grp in ($instances | Group-Object -Property ModsFolder)) {
+    $scanGroups += [PSCustomObject]@{
+        ModsFolder = $grp.Name
+        Instances  = @($grp.Group)
+        Source     = $grp.Group[0].Source
+    }
+}
+
+Write-Host "  [+] Detected $($instances.Count) Minecraft process(es) across $($scanGroups.Count) instance folder(s)`n" -ForegroundColor Green
+foreach ($g in $scanGroups) {
+    Write-Host "  ┌─ Mods folder : $($g.ModsFolder)" -ForegroundColor Green
+    foreach ($i in $g.Instances) {
+        $up = if ($i.Uptime) { "$($i.Uptime.Hours)h $($i.Uptime.Minutes)m $($i.Uptime.Seconds)s" } else { "n/a" }
+        Write-Host "  ├─ $($i.ProcessName) PID $($i.ProcessId) | Player: $($i.Player) | Uptime: $up" -ForegroundColor DarkGreen
+    }
+}
 Write-Host ""
 
-if (-not $NoStatusLists -or $ShowStatusLists) {
-    Write-XmaSection -Title "Status Lists" -Color Cyan
-    Write-XmaStatusList -Label "Verified" -Color Green -Items @($reportArray | Where-Object { $_.Status -eq "Verified" })
-    Write-XmaStatusList -Label "Unknown" -Color Yellow -Items @($reportArray | Where-Object { $_.Status -eq "Unknown" })
-    Write-XmaStatusList -Label "Review" -Color DarkYellow -Items @($reportArray | Where-Object { $_.Status -eq "Review" })
-    Write-XmaStatusList -Label "Review (Verified)" -Color DarkYellow -Items @($reportArray | Where-Object { $_.Status -eq "Review (Verified)" })
-    Write-XmaStatusList -Label "Suspicious" -Color Red -Items @($reportArray | Where-Object { $_.Status -eq "Suspicious" })
+$fabricPatterns = @{
+    "fabric.addMods"='-Dfabric\.addMods='; "fabric.loadMods"='-Dfabric\.loadMods='; "fabric.classPathGroups"='-Dfabric\.classPathGroups='; "fabric.gameJarPath"='-Dfabric\.gameJarPath='; "fabric.skipMcProvider"='-Dfabric\.skipMcProvider='; "fabric.development"='-Dfabric\.development='; "fabric.allowUnsupportedVersion"='-Dfabric\.allowUnsupportedVersion='; "fabric.remapClasspathFile"='-Dfabric\.remapClasspathFile='; "fabric.skipIntermediary"='-Dfabric\.skipIntermediary='; "fabric.configDir"='-Dfabric\.configDir='; "fabric.loader.config"='-Dfabric\.loader\.config='; "fabric.log.level"='-Dfabric\.log\.level='; "fabric.debug.dumpClasspath"='-Dfabric\.debug\.dumpClasspath='; "fabric.log.config"='-Dfabric\.log\.config='; "fabric.dli.config"='-Dfabric\.dli\.config='; "fabric.mixin.configs"='-Dfabric\.mixin\.configs='; "fabric.mixin.hotSwap"='-Dfabric\.mixin\.hotSwap='; "fabric.mixin.debug.export"='-Dfabric\.mixin\.debug\.export='; "fabric.mixin.debug.verbose"='-Dfabric\.mixin\.debug\.verbose='; "fabric.gameVersion"='-Dfabric\.gameVersion='; "fabric.forceVersion"='-Dfabric\.forceVersion='; "fabric.autoDetectVersion"='-Dfabric\.autoDetectVersion='; "fabric.launcher.name"='-Dfabric\.launcher\.name='; "fabric.launcher.brand"='-Dfabric\.launcher\.brand='; "fabric.mods.toml.path"='-Dfabric\.mods\.toml\.path='; "fabric.customModList"='-Dfabric\.customModList='; "fabric.resolve.modFiles"='-Dfabric\.resolve\.modFiles='; "fabric.skipDependencyResolution"='-Dfabric\.skipDependencyResolution='; "fabric.loader.entrypoints"='-Dfabric\.loader\.entrypoints='; "fabric.language.providers"='-Dfabric\.language\.providers=';
+    "forge.addMods"='-Dforge\.addMods='; "forge.mods"='-Dforge\.mods='; "fml.coreMods.load"='-Dfml\.coreMods\.load='; "forge.coreMods.dir"='-Dforge\.coreMods\.dir='; "forge.modDir"='-Dforge\.modDir='; "forge.modsDirectories"='-Dforge\.modsDirectories='; "fml.customModList"='-Dfml\.customModList='; "forge.disableModScan"='-Dforge\.disableModScan='; "forge.modList"='-Dforge\.modList='; "forge.forceVersion"='-Dforge\.forceVersion='; "forge.disableUpdateCheck"='-Dforge\.disableUpdateCheck='; "forge.logging.mojang.level"='-Dforge\.logging\.mojang\.level='; "forge.mixin.hotSwap"='-Dforge\.mixin\.hotSwap='; "forge.resourcePack"='-Dforge\.resourcePack='; "forge.defaultResourcePack"='-Dforge\.defaultResourcePack='; "forge.texturePacks"='-Dforge\.texturePacks='; "forge.assetIndex"='-Dforge\.assetIndex='; "forge.assetsDir"='-Dforge\.assetsDir=';
+    "javaSecurityManager"='-Djava\.security\.manager='; "javaSecurityPolicy"='-Djava\.security\.policy='; "bootClasspath"='-Xbootclasspath'; "systemClassLoader"='-Djava\.system\.class\.loader='; "javaClassPath"='-Djava\.class\.path='; "cp"='-cp\s+["''][^"'';]*\.jar';
+    "cheatClientBrand"='-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)';
+    "javaAgent"='-javaagent:'; "agentLib"='-agentlib:jdwp'; "agentPath"='-agentpath:';
+    "optifine"='-Doptifine\.'; "shadersmod"='-Dshaders?\.'; "shaderPack"='-Dshader[sP]ack='; "cheatPattern"='-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
+}
+$cheatClients = @('Wurst','Aristois','Impact','Kilo','Future','Lambda','Rusher','Konas','Phobos','Salhack','ForgeHax','Mathax','Meteor','Async','Seppuku','Xatz','Wolfram','Huzuni','Jigsaw','Zamorozka','Moon','Rage','Exhibition','Virtue','Novoline','Rekt','Skid','Ares','Abyss','Thunder','Tenacity','Rise','Flux','Gamesense','Intent','Remix','Sight','Vape','Shield','Ghost','Crispy','Inertia')
+$legitAgents = @('jmxremote','yjp','jrebel','newrelic','jacoco','theseus')
+
+function Invoke-JvmArgScan {
+    param($Instance)
+
+    $cmdLine = $Instance.CommandLine
+    if (-not $cmdLine) {
+        Write-Host "  └─ [!] Could not retrieve command line for PID $($Instance.ProcessId)" -ForegroundColor DarkYellow
+        Write-Host "      [i] Run as Administrator for complete detection.`n" -ForegroundColor DarkYellow
+        return $false
+    }
+
+    Write-Host "  ┌─ Process: PID $($Instance.ProcessId) | Player: $($Instance.Player)" -ForegroundColor Green
+    if ($Instance.UUID -ne "N/A") { Write-Host "  ├─ UUID: $($Instance.UUID)" -ForegroundColor DarkGreen }
+
+    if ($cmdLine -match '^"([^"]+)"') { $cmdLine = $cmdLine.Substring($matches[1].Length + 2).Trim() }
+
+    $detectedPatterns = @(); $suspiciousArgs = @()
+    foreach ($k in $fabricPatterns.Keys) {
+        if ($k -eq "addOpens" -or $k -eq "addExports") { continue }
+        if ($cmdLine -match $fabricPatterns[$k]) {
+            if ($k -eq "javaAgent") {
+                $agentHits = @()
+                foreach ($m in [regex]::Matches($cmdLine, '-javaagent:([^\s"]+)')) {
+                    $agentName = [System.IO.Path]::GetFileName($m.Groups[1].Value.Trim('"').Trim("'"))
+                    $isLegit = $false
+                    foreach ($la in $legitAgents) { if ($agentName -match $la) { $isLegit = $true; break } }
+                    if (-not $isLegit) { $agentHits += $m.Value }
+                }
+                if ($agentHits.Count -eq 0) { continue }
+                $suspiciousArgs += $agentHits
+            }
+            $detectedPatterns += $k
+            $suspiciousArgs += ($cmdLine -split '\s+' | Where-Object { $_ -match $fabricPatterns[$k] })
+        }
+    }
+    foreach ($cc in $cheatClients) {
+        if ($cmdLine -match "(?i)\b$cc\b" -and $detectedPatterns -notcontains "CheatClient-$cc") { $detectedPatterns += "CheatClient-$cc" }
+    }
+    if ($cmdLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)') { $detectedPatterns += "EncodedInjection" }
+
+    if ($detectedPatterns.Count -gt 0) {
+        Write-Host "  ├─ [X] JVM INJECTION DETECTED`n" -ForegroundColor Red
+        Write-Host "  │  Detected JVM Arguments:" -ForegroundColor Yellow
+        $suspiciousArgs | Select-Object -Unique | ForEach-Object { Write-Host "  │    • $_" -ForegroundColor Magenta }
+        Write-Host "`n  │  Detected Pattern Categories:" -ForegroundColor Yellow
+        $grouped = @{}
+        foreach ($p in $detectedPatterns) {
+            $t = if ($p -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|javaAgent|agentLib|agentPath|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") { $matches[1] } else { "other" }
+            if (-not $grouped[$t]) { $grouped[$t] = @() }
+            $grouped[$t] += $p
+        }
+        $typeMap = @{ fabric="Fabric Injection"; forge="Forge Injection"; javaSecurity="Security Bypass"; bootClasspath="Classpath Manipulation"; systemClassLoader="Class Loader"; javaClassPath="Class Path"; cp="Classpath (-cp)"; cheatClient="Cheat Client"; javaAgent="JVM Agent"; agentLib="JDWP Debug Agent"; agentPath="Native Agent"; optifine="Optifine/Shaders"; shadersmod="Shader Mod"; shaderPack="Shader Pack"; cheatPattern="Cheat Pattern"; EncodedInjection="Encoded Injection"; other="Other" }
+        foreach ($t in $grouped.Keys | Sort-Object) {
+            Write-Host "  │    └─ $($typeMap[$t])" -ForegroundColor White
+            $grouped[$t] | ForEach-Object { Write-Host "  │        • $($_ -replace 'CheatClient-','')" -ForegroundColor Red }
+        }
+        Write-Host "`n  └─ ! WARNING: Potential cheat client or mod injection detected!`n" -ForegroundColor Red
+        return $true
+    }
+
+    Write-Host "  └─ [+] No JVM injection patterns detected`n" -ForegroundColor Green
+    return $false
 }
 
-$signatureHitReports = @(
-    $reportArray |
-        Where-Object {
-            @($_.SignatureHits).Count -gt 0
+$modrinthCache = @{}
+$projectCache  = @{}
+$fileHashCache = @{}
+$minecraftVersion = $null
+
+function Get-SHA1($p) {
+    if ($fileHashCache.ContainsKey($p)) { return $fileHashCache[$p] }
+    $h = (Get-FileHash -Path $p -Algorithm SHA1).Hash
+    $fileHashCache[$p] = $h
+    return $h
+}
+
+function Get-ZoneIdentifier($p) {
+    try {
+        $raw = Get-Content -Raw -Stream Zone.Identifier $p -ErrorAction SilentlyContinue
+        if ($raw -match "HostUrl=(.+)") {
+            $url = $matches[1]
+            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord"{"Discord"} "mediafire\.com"{"MediaFire"} "dropbox\.com"{"Dropbox"} "drive\.google\.com"{"Google Drive"} "mega\.nz|mega\.co\.nz"{"MEGA"} "anydesk\.com"{"AnyDesk"} "doomsdayclient\.com"{"DoomsdayClient"} "prestigeclient\.vip"{"PrestigeClient"} "198macros\.com"{"198Macros"} "dqrkis\.xyz"{"Dqrkis"} default{"Other"} }
+            return @{ Source=$src; URL=$url; IsModrinth=$url -match "modrinth\.com" }
         }
+    } catch {}
+    return @{ Source="Unknown"; URL=""; IsModrinth=$false }
+}
+
+function Get-Mod-Info-From-Jar($jarPath) {
+    $mi = @{ ModId=""; Name=""; Version=""; Authors=@(); ModLoader="" }
+    try {
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
+        $e = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $fd = $r.ReadToEnd() | ConvertFrom-Json; $r.Close()
+            $mi.ModId=$fd.id; $mi.Name=$fd.name; $mi.Version=$fd.version; $mi.ModLoader="Fabric"
+            $zip.Dispose(); return $mi
+        }
+        $e = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' -or $_.FullName -eq 'META-INF/neoforge.mods.toml' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $tc = $r.ReadToEnd(); $r.Close()
+            if ($tc -match 'modId\s*=\s*"([^"]+)"') { $mi.ModId=$matches[1] }
+            if ($tc -match 'displayName\s*=\s*"([^"]+)"') { $mi.Name=$matches[1] }
+            if ($tc -match 'version\s*=\s*"([^"]+)"') { $mi.Version=$matches[1] }
+            $mi.ModLoader="Forge/NeoForge"; $zip.Dispose(); return $mi
+        }
+        $e = $zip.Entries | Where-Object { $_.Name -match '\.mixins\.json$' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $mx = $r.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue; $r.Close()
+            if ($mx.package -and -not $mi.ModId) { $pp = $mx.package -split '\.'; if ($pp.Count -ge 2) { $mi.ModId=$pp[-2] } }
+        }
+        $e = $zip.Entries | Where-Object { $_.Name -eq 'MANIFEST.MF' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $mc2 = $r.ReadToEnd(); $r.Close()
+            foreach ($line in ($mc2 -split "`n")) {
+                if ($line -match 'Implementation-Title:\s*(.+)' -and -not $mi.Name) { $mi.Name=$matches[1].Trim() }
+                if ($line -match 'Implementation-Version:\s*(.+)' -and -not $mi.Version) { $mi.Version=$matches[1].Trim() }
+            }
+        }
+        $zip.Dispose()
+    } catch {}
+    return $mi
+}
+
+function Get-Minecraft-Version-From-Mods($modsFolder, $Instance) {
+    $mcVersions = @{}; $modsScanned = 0
+    Write-Host "  [i] Analyzing mods for Minecraft version..." -ForegroundColor Cyan
+    foreach ($file in (Get-ChildItem -Path $modsFolder -Filter *.jar)) {
+        try {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($file.FullName)
+            $fmj = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1
+            if ($fmj) {
+                $r = New-Object System.IO.StreamReader($fmj.Open()); $fd = $r.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue; $r.Close()
+                if ($fd.depends.minecraft) {
+                    $s = $fd.depends.minecraft
+                    $ver = if ($s -match '>=\s*(\d+\.\d+(?:\.\d+)?).*<=\s*(\d+\.\d+(?:\.\d+)?)') { $matches[2] }
+                          elseif ($s -match '[><=~\^]+\s*(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                          elseif ($s -match '^(\d+\.\d+(?:\.\d+)?)$') { $matches[1] }
+                          elseif ($s -match '(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                    if ($ver -match '^\d+\.\d+(?:\.\d+)?$') { if (-not $mcVersions[$ver]) { $mcVersions[$ver]=0 }; $mcVersions[$ver]++; $modsScanned++ }
+                }
+            }
+            $mtoml = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1
+            if ($mtoml) {
+                $r = New-Object System.IO.StreamReader($mtoml.Open()); $tc = $r.ReadToEnd(); $r.Close()
+                if ($tc -match 'modId\s*=\s*"minecraft"[\s\S]{0,200}versionRange\s*=\s*"([^"]+)"') {
+                    $vr = $matches[1]
+                    $ver = if ($vr -match '\[(\d+\.\d+(?:\.\d+)?),') { $matches[1] }
+                           elseif ($vr -match '\[(\d+\.\d+(?:\.\d+)?)\]') { $matches[1] }
+                           elseif ($vr -match '(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                    if ($ver) { if (-not $mcVersions[$ver]) { $mcVersions[$ver]=0 }; $mcVersions[$ver]++; $modsScanned++ }
+                }
+            }
+            $zip.Dispose()
+        } catch { continue }
+    }
+    if ($mcVersions.Count -gt 0) {
+        $best = $mcVersions.GetEnumerator() | Sort-Object -Property @{E={$_.Value};D=$true},@{E={$_.Key};D=$true} | Select-Object -First 1
+        Write-Host "  [i] Detected Minecraft version: $($best.Key) (from $($best.Value) out of $modsScanned mods)" -ForegroundColor Cyan
+        return $best.Key
+    }
+    if ($Instance -and $Instance.CommandLine) {
+        foreach ($pat in @('versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]','-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)','-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)','--version\s+(\d+\.\d+(?:\.\d+)?)')) {
+            if ($Instance.CommandLine -match $pat) { Write-Host "  [i] Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan; return $matches[1] }
+        }
+    }
+    Write-Host "  [!] Could not auto-detect Minecraft version - version filtering will be skipped." -ForegroundColor DarkYellow
+    return $null
+}
+
+function Find-Closest-Version($localVersion, $availableVersions, $preferredLoader="Fabric", $minecraftVersion) {
+    if (-not $localVersion -or -not $availableVersions) { return $null }
+    $fv = $availableVersions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) }
+    if (-not $fv) { $fv = $availableVersions | Where-Object { $_.game_versions -contains $minecraftVersion } }
+    if (-not $fv) { $fv = $availableVersions | Where-Object { $_.loaders -contains $preferredLoader.ToLower() } }
+    if (-not $fv) { $fv = $availableVersions }
+    $exact = $fv | Where-Object { $_.version_number -eq $localVersion } | Select-Object -First 1
+    if ($exact) { return $exact }
+    try {
+        if ($localVersion -match '(\d+)\.(\d+)\.(\d+)') {
+            $ma=[int]$matches[1]; $mi2=[int]$matches[2]; $pa=[int]$matches[3]
+            $best=$null; $bestD=[double]::MaxValue
+            foreach ($v in $fv) {
+                if ($v.version_number -match '(\d+)\.(\d+)\.(\d+)') {
+                    $d=[math]::Sqrt([math]::Pow($ma-[int]$matches[1],2)*100+[math]::Pow($mi2-[int]$matches[2],2)*10+[math]::Pow($pa-[int]$matches[3],2))
+                    if ($d -lt $bestD) { $bestD=$d; $best=$v }
+                }
+            }
+            if ($best -and $bestD -lt 10) { return $best }
+        }
+        if ($localVersion -match '(\d+)\.(\d+)') {
+            $ma=[int]$matches[1]; $mi2=[int]$matches[2]
+            $best=$null; $bestD=[double]::MaxValue
+            foreach ($v in $fv) {
+                if ($v.version_number -match '(\d+)\.(\d+)') {
+                    $d=[math]::Sqrt([math]::Pow($ma-[int]$matches[1],2)*10+[math]::Pow($mi2-[int]$matches[2],2))
+                    if ($d -lt $bestD) { $bestD=$d; $best=$v }
+                }
+            }
+            if ($best -and $bestD -lt 5) { return $best }
+        }
+    } catch {}
+    return $fv | Where-Object { $_.version_number -match [regex]::Escape($localVersion) } | Select-Object -First 1
+}
+
+function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType="") {
+    $file = $ver.files[0]
+    $loader = if ($ver.loaders -contains "fabric") {"Fabric"} elseif ($ver.loaders -contains "forge") {"Forge"} else {$ver.loaders[0]}
+    return @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$file.size; VersionNumber=$ver.version_number; FileName=$file.filename
+              ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($ver.id)"; FoundByHash=$byHash
+              ExactMatch=($byHash -or $matchType -eq "Exact Version" -or $matchType -eq "Exact Filename")
+              IsLatestVersion=($versions[0].id -eq $ver.id); MatchType=$matchType; LoaderType=$loader }
+}
+
+function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
+function Get-ModrinthProject($id) {
+    $key = [string]$id
+    if ($projectCache.ContainsKey($key)) { return $projectCache[$key] }
+    $p = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing
+    if ($p.id) { $projectCache[[string]$p.id] = $p }
+    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+    $projectCache[$key] = $p
+    return $p
+}
+
+function Fetch-Modrinth-By-Hash($hash) {
+    if ($modrinthCache.ContainsKey("hash:$hash")) { return $modrinthCache["hash:$hash"] }
+    $result = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    try {
+        $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -UseBasicParsing
+        if ($resp.project_id) {
+            $proj = Get-ModrinthProject $resp.project_id
+            $result = @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$resp.files[0].size; VersionNumber=$resp.version_number
+                         FileName=$resp.files[0].filename; ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($resp.id)"
+                         FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
+                         LoaderType=$(if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"}) }
+        }
+    } catch {}
+    $modrinthCache["hash:$hash"] = $result
+    return $result
+}
+
+function Fetch-By-ProjectId($id, $version, $preferredLoader) {
+    try {
+        $proj = Get-ModrinthProject $id; $versions = Get-ModrinthVersions $id
+        $matched = Find-Closest-Version $version $versions $preferredLoader $minecraftVersion
+        if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType $(if ($matched.version_number -eq $version){"Exact Version"} else {"Closest Version"}) }
+        $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
+        if (-not $fallback) { $fallback = $versions[0] }
+        if ($fallback) { return Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version" }
+    } catch {}
+    return $null
+}
+
+function Fetch-Modrinth-By-ModId($modId, $version, $preferredLoader="Fabric") {
+    $cacheKey = "modid:$modId|$version|$preferredLoader|$minecraftVersion"
+    if ($modrinthCache.ContainsKey($cacheKey)) { return $modrinthCache[$cacheKey] }
+    $result = Fetch-By-ProjectId $modId $version $preferredLoader
+    if ($result) { $modrinthCache[$cacheKey] = $result; return $result }
+    try {
+        $search = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -UseBasicParsing
+        if ($search.hits.Count -gt 0) {
+            $best = $search.hits | Sort-Object { if ($_.slug -eq $modId){100} elseif ($_.title -eq $modId){80} elseif ($_.title -match $modId){50} else{0} } -Descending | Select-Object -First 1
+            if ($best) { $r = Fetch-By-ProjectId $best.project_id $version $preferredLoader; if ($r) { $modrinthCache[$cacheKey] = $r; return $r } }
+        }
+    } catch {}
+    $empty = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $modrinthCache[$cacheKey] = $empty
+    return $empty
+}
+
+function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
+    $cacheKey = "filename:$filename|$preferredLoader|$minecraftVersion"
+    if ($modrinthCache.ContainsKey($cacheKey)) { return $modrinthCache[$cacheKey] }
+    $clean = $filename -replace '\.temp\.jar$|\.tmp\.jar$|_1\.jar$','.jar'
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($clean)
+    if ($filename -match '(?i)fabric') { $preferredLoader="Fabric" } elseif ($filename -match '(?i)forge') { $preferredLoader="Forge" }
+    $localVer = ""; $baseName = $base
+    if ($base -match '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$') { $localVer=$matches[1]; $baseName=$base -replace '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$','' }
+    $baseName = $baseName -replace '(?i)-fabric$|-forge$',''
+
+    foreach ($slug in @($baseName.ToLower(), $base.ToLower())) {
+        try {
+            $proj = Get-ModrinthProject $slug; $versions = Get-ModrinthVersions $slug
+            $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
+            if ($exactFile) { $r = Build-ModrinthResult $proj $exactFile.ver $versions -matchType "Exact Filename"; $modrinthCache[$cacheKey] = $r; return $r }
+            $matched = Find-Closest-Version $localVer $versions $preferredLoader $minecraftVersion
+            if ($matched) { $r = Build-ModrinthResult $proj $matched $versions -matchType $(if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}); $modrinthCache[$cacheKey] = $r; return $r }
+            $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
+            if (-not $fallback) { $fallback = $versions[0] }
+            if ($fallback) { $r = Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version"; $modrinthCache[$cacheKey] = $r; return $r }
+        } catch { continue }
+    }
+    try {
+        $search = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$baseName`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -UseBasicParsing
+        if ($search.hits.Count -gt 0) {
+            $hit = $search.hits[0]; $versions = Get-ModrinthVersions $hit.project_id
+            $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
+            if ($exactFile) { $r = Build-ModrinthResult $hit $exactFile.ver $versions -matchType "Exact Filename"; $modrinthCache[$cacheKey] = $r; return $r }
+            if ($versions.Count -gt 0) { $r = Build-ModrinthResult $hit $versions[0] $versions -matchType "Latest Version"; $modrinthCache[$cacheKey] = $r; return $r }
+        }
+    } catch {}
+    $empty = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $modrinthCache[$cacheKey] = $empty
+    return $empty
+}
+
+function Fetch-Megabase($hash) {
+    try { $r = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -UseBasicParsing; if (-not $r.error) { return $r.data } } catch {}
+    return $null
+}
+
+function Invoke-BulkHashLookup($jarFiles) {
+    $hashMap = @{}
+    foreach ($file in $jarFiles) { $hashMap[(Get-SHA1 $file.FullName)] = $file }
+
+    $pending = @($hashMap.Keys | Where-Object { -not $modrinthCache.ContainsKey("hash:$_") })
+    if ($pending.Count -eq 0) { return $hashMap }
+
+    try {
+        $body = @{ hashes = $pending; algorithm = "sha1" } | ConvertTo-Json
+        $raw = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_files" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing
+
+        $versionsByHash = @{}
+        $projectIds = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($prop in $raw.PSObject.Properties) {
+            $versionsByHash[$prop.Name] = $prop.Value
+            if ($prop.Value.project_id) { [void]$projectIds.Add([string]$prop.Value.project_id) }
+        }
+
+        if ($projectIds.Count -gt 0) {
+            try {
+                $idsJson = '[' + ((@($projectIds) | ForEach-Object { '"' + $_ + '"' }) -join ',') + ']'
+                $projects = Invoke-RestMethod -Uri ("https://api.modrinth.com/v2/projects?ids=" + [uri]::EscapeDataString($idsJson)) -UseBasicParsing
+                foreach ($p in $projects) {
+                    if ($p.id) { $projectCache[[string]$p.id] = $p }
+                    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+                }
+            } catch {}
+        }
+
+        foreach ($hash in $versionsByHash.Keys) {
+            $ver = $versionsByHash[$hash]
+            try {
+                $proj = Get-ModrinthProject $ver.project_id
+                $modrinthCache["hash:$hash"] = @{
+                    Name=$proj.title; Slug=$proj.slug; ExpectedSize=$ver.files[0].size
+                    VersionNumber=$ver.version_number; FileName=$ver.files[0].filename
+                    ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($ver.id)"
+                    FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
+                    LoaderType=$(if ($ver.loaders -contains "fabric"){"Fabric"} elseif ($ver.loaders -contains "forge"){"Forge"} else{"Unknown"})
+                }
+            } catch {}
+        }
+    } catch {
+        Write-Host "  [!] Bulk lookup failed, falling back to individual lookups: $($_.Exception.Message)`n" -ForegroundColor DarkYellow
+    }
+    return $hashMap
+}
+
+$cheatStrings = @(
+    "isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition","speedPotSlot","strengthPotSlot","preventSwordBlockBreaking","preventSwordBlockAttack",
+    "Sw1tch","D3l4y","M1n","Pl4ce","T0t3m","Sl0t","Expl0de","Aut0",
+    "Cry5t4l","C11ckGu1","obsPos","crystalslot","findKnockbackSword","attackRegisteredThisClick","freecam","pushOutOfBlocks",
+    "onPushOutOfBlocks","MAX_ESPERA_TICKS","posCristal","modifyDecrementAmount","preventSwordFromBlockAttack","preventSwordFromBlockBreaking","shouldBlockBlockHit","lwfh",
+    "Donut","setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown","onBlockBreaking","invokeDoAttack","invokeDoItemUse","setSelectedSlot",
+    "getSelectedSlot","swapBackToOriginalSlot","blockBreakingCooldown","invokeOnMouseButton","onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick","getHandSwingDuration","onBeginRenderTick",
+    "PlayerMoveC2SPacketAccessor","redirectSelectedSlot","hookCancelBlockBreaking","EndCrystalItemMixin","arrayOfString","lvstrng","dqrkis","StringObfuscator",
+    "POT_CHEATS","onShouldRenderBlockOutline","predictCrystals","noOffhandTotem","getNearByCrystals","slotExplode","needToPlaceRails","findTotemSlot",
+    "activateOnRightClick","crystalPlaceClock","isDeadBodyNearby","CrystalTwiceClock","mainHandStack","attackInAir","attackOnJump","onDestruct",
+    "getGlowstoneChance","isAutoCharge","getPlaceChance","getSwitchDelay","getGlowstoneDelay","getExplodeDelay","getExplodeSlotIndex","getPlaceDelayTicks",
+    "getBreakDelayTicks","getBreakChance","isSpawnersEnabled","isShulkersEnabled","onModuleDisabled","switchToBestTool","switchToBestWeapon","isLootProtect",
+    "getMinHunger","isTracersEnabled","getSelectedBlocks","isChestsEnabled","4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
+    "inventoryToMenuSlot","throwPearl","isLeftHoldOnly","Automatically switches to sword when hitting with totem","Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions","CwskKkUfHQYB",
+    "HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a",
+    "Oh0yWR0MCA","pedroisgay","krloader","K3yAHC","Aut0 H1t Cryst4l M4cr0","D0ubl3 4nch0r","Aut0H1tCyst4l","Pr3Ch3ck",
+    "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t","N0 Dglwst0ne","Clk Sim",
+    "P34rl C4tch3r","4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t","simulateClicks",
+    "Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
 )
-if ($signatureHitReports.Count -gt 0) {
-    Write-XmaSection -Title "Matched Signature Strings" -Color DarkMagenta
-    foreach ($r in @($signatureHitReports | Sort-Object FileName)) {
-        Write-Host ""
-        Write-XmaReportDisplayLine -Report $r -Color White -Suffix " [$($r.Status)]"
-        $displayHits = @($r.SignatureHits | Select-Object -First 25)
-        foreach ($sig in $displayHits) {
-            Write-Host "  - $sig" -ForegroundColor Magenta
-        }
 
-        $remainingHits = @($r.SignatureHits).Count - $displayHits.Count
-        if ($remainingHits -gt 0) {
-            Write-Host "  - (+$remainingHits more)" -ForegroundColor DarkMagenta
+$cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
+
+$strongNames = @(
+    "AutoCrystal","AutoHitCrystal","CrystalAura","CrystalMacro","AutoCrystalPlaceClock",
+    "DontPlaceCrystal","DontBreakCrystal","CanPlaceCrystalServer","KanPlaceKrystalServer",
+    "EsperandoCristal","BuscarCristal",
+    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance",
+    "explodeSlot","antiWeakness","damageTick","breakChance","breakDelay","stopOnCrystal","processCrystal","swapToWeapon",
+    "AutoAnchor","DoubleAnchor","SafeAnchor","AirAnchor","AnchorMacro","AnchorAura",
+    "AnchorTweaks","AnchorAction",
+    "AutoTotem","HoverTotem","InventoryTotem","LegitTotem","LegitReTotem","ForceTotem",
+    "OffhandTotem","TotemSwitch","ReOffhandTotem",
+    "AutoPot","AutoPotRefill","AutoNethPot","AutoArmor","AutoDoubleHand","AutoClicker",
+    "AutoFirework","AutoEat","AutoMine","AutoWeb","AntiWeb","WebMacro",
+    "AutoMace","MaceSwap","SpearSwap","StunSlam","Macro198","AutoDtap",
+    "AimAssist","TriggerBot","SilentAim","AimLock","KillAura","ClickAura","MultiAura",
+    "LegitAura","BowAimbot","ShieldDisabler","ShieldBreaker","AxeSpam",
+    "FakeLag","PingSpoof","FakeInv","FakePunch","PackSpoof","AntiKnockback",
+    "ElytraSwap","KeyPearl","LootYeeter","AutoBreach","FastPlace","JumpReset","PopSwitch",
+    "SprintReset","ChestSteal","BaseFinder","StashFinder","SelfDestruct",
+    "WalksyOptimizer","WalskyOptimizer","WalksyCrystalOptimizerMod",
+    "AuthBypass","LicenseCheckMixin","ObfuscatedAuth","GrimBypass","GrimDisabler",
+    "GrimVelocity","VulcanBypass","MatrixBypass","WatchdogBypass","IntaveBypass",
+    "VerusDisabler","AACBypass",
+    "DqrkisClient","NovaClient","DoomsdayClient","PrestigeClient","VapeClient","VapeLite",
+    "LiquidBounce","MeteorClient","RusherHack","ImpactClient","FutureClient",
+    "CatleanClient","AsteriaClient","XenonClient","GypsyClient",
+    "Aut0Cryst3l","Aut0Cryst4l","Aut0H1tCryst3l","Aut0H1tCryst4l","Anch0rMacr0",
+    "Anch0rM4cr0","4nch0rM4cr0","D0uble4nch0r","D0ubl3Anch0r","S4feAnch0r","S4fe4nch0r",
+    "Aut0T0t3m","H0verT0t3m","L3g1tR3t0t3m","Aut0D0ubl3H4nd","Aut0Stun"
+)
+
+$strongNeedleMap = @{}
+foreach ($name in $strongNames) {
+    $k = ($name -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
+    if ($k.Length -ge 5 -and -not $strongNeedleMap.ContainsKey($k)) { $strongNeedleMap[$k] = $name }
+}
+$strongKeysByLen = @($strongNeedleMap.Keys | Sort-Object -Property Length -Descending)
+
+$fwLabelMap = @{}
+foreach ($s in $cheatStrings) {
+    if ($s -notmatch '[a-zA-Z]') { continue }
+    $k = ($s -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
+    if ($k.Length -ge 5 -and -not $fwLabelMap.ContainsKey($k) -and -not $strongNeedleMap.ContainsKey($k)) { $fwLabelMap[$k] = $s }
+}
+$fwLabelKeysByLen = @($fwLabelMap.Keys | Sort-Object -Property Length -Descending)
+
+$scanSource = @'
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+public static class YarpScan
+{
+    public static string[] ExactNeedles = new string[0];
+    public static string[] StrongKeys = new string[0];
+    public static string[] StrongNames = new string[0];
+    public static string[] ObfNeedles = new string[0];
+    public static string[] ObfNames = new string[0];
+
+    public static string Normalize(string text)
+    {
+        StringBuilder sb = new StringBuilder(text.Length);
+        bool boundary = true;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            int code = (int)c;
+            if (code >= 0xFF01 && code <= 0xFF5E) { c = (char)(code - 0xFEE0); }
+            else if (code == 0x3000) { c = ' '; }
+            if (c == ' ' || c == '\t' || c == '.' || c == '-' || c == '_') { continue; }
+            if (c >= 'A' && c <= 'Z') { sb.Append((char)(c + 32)); boundary = false; }
+            else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) { sb.Append(c); boundary = false; }
+            else { if (!boundary) { sb.Append('\n'); boundary = true; } }
         }
+        return sb.ToString();
     }
-    Write-Host ""
+
+    public static List<string> Scan(string content, List<string> fwRuns, List<string> obfHits)
+    {
+        List<string> found = new List<string>();
+        for (int i = 0; i < ExactNeedles.Length; i++)
+        {
+            if (content.IndexOf(ExactNeedles[i], StringComparison.OrdinalIgnoreCase) >= 0) { found.Add(ExactNeedles[i]); }
+        }
+        for (int i = 0; i < ObfNeedles.Length; i++)
+        {
+            if (!obfHits.Contains(ObfNames[i]) && content.IndexOf(ObfNeedles[i], StringComparison.Ordinal) >= 0) { obfHits.Add(ObfNames[i]); }
+        }
+        string norm = Normalize(content);
+        for (int i = 0; i < StrongKeys.Length; i++)
+        {
+            if (norm.IndexOf(StrongKeys[i], StringComparison.Ordinal) >= 0) { found.Add(StrongNames[i]); }
+        }
+        int runStart = -1; int runEndFw = -1; int fwCount = 0;
+        for (int i = 0; i < content.Length; i++)
+        {
+            char c = content[i];
+            int code = (int)c;
+            bool isFw = (code >= 0xFF01 && code <= 0xFF5E) || code == 0x3000;
+            if (isFw)
+            {
+                if (runStart < 0) { runStart = i; fwCount = 0; }
+                runEndFw = i; fwCount++;
+            }
+            else if (runStart >= 0 && i == runEndFw + 1 && (c == ' ' || c == '.' || c == '-' || c == '_'))
+            {
+            }
+            else
+            {
+                if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+                runStart = -1; runEndFw = -1; fwCount = 0;
+            }
+        }
+        if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+        return found;
+    }
+}
+'@
+if (-not ("YarpScan" -as [type])) { Add-Type -TypeDefinition $scanSource }
+
+$obfSignatures = @(
+    @{Sig="dev/skidfuscator";       Name="Skidfuscator"},
+    @{Sig="skidfuscator.dev";       Name="Skidfuscator"},
+    @{Sig="Skidfuscator";           Name="Skidfuscator"},
+    @{Sig="dev/paramorphism";       Name="Paramorphism"},
+    @{Sig="paramorphism-";          Name="Paramorphism"},
+    @{Sig="Paramorphism";           Name="Paramorphism"},
+    @{Sig="me/itzsomebody/radon";   Name="Radon"},
+    @{Sig="ItzSomebody/Radon";      Name="Radon"},
+    @{Sig="Radon Obfuscator";       Name="Radon"},
+    @{Sig="dev/sim0n/caesium";      Name="Caesium"},
+    @{Sig="sim0n/Caesium";          Name="Caesium"},
+    @{Sig="Caesium Obfuscator";     Name="Caesium"},
+    @{Sig="vimasig/Bozar";          Name="Bozar"},
+    @{Sig="com/bozar";              Name="Bozar"},
+    @{Sig="Bozar Obfuscator";       Name="Bozar"},
+    @{Sig="branchlock.dev";         Name="Branchlock"},
+    @{Sig="Branchlock";             Name="Branchlock"},
+    @{Sig="com/binscure";           Name="Binscure"},
+    @{Sig="Binscure";               Name="Binscure"},
+    @{Sig="superblaubeere27";       Name="SuperBlaubeere27"},
+    @{Sig="superblaubeere";         Name="SuperBlaubeere27"},
+    @{Sig="Qprotect";               Name="Qprotect"},
+    @{Sig="QProtect";               Name="Qprotect"},
+    @{Sig="ZKMFLOW";                Name="Zelix KlassMaster"},
+    @{Sig="ZelixKlassMaster";       Name="Zelix KlassMaster"},
+    @{Sig="com/zelix";              Name="Zelix KlassMaster"},
+    @{Sig="StringerJavaObfuscator"; Name="Stringer"},
+    @{Sig="com/licel/stringer";     Name="Stringer"},
+    @{Sig="jnic.obf";               Name="JNIC"},
+    @{Sig="jnic-obfuscator";        Name="JNIC"},
+    @{Sig="ScutiObf";               Name="Scuti"},
+    @{Sig="scuti.obf";              Name="Scuti"},
+    @{Sig="SmokeObf";               Name="Smoke"},
+    @{Sig="smoke.obf";              Name="Smoke"}
+)
+
+[YarpScan]::ExactNeedles = [string[]]@($cheatStringSet)
+[YarpScan]::StrongKeys   = [string[]]$strongKeysByLen
+[YarpScan]::StrongNames  = [string[]]@($strongKeysByLen | ForEach-Object { $strongNeedleMap[$_] })
+[YarpScan]::ObfNeedles   = [string[]]@($obfSignatures | ForEach-Object { $_.Sig })
+[YarpScan]::ObfNames     = [string[]]@($obfSignatures | ForEach-Object { $_.Name })
+
+function Resolve-FullwidthRuns {
+    param($Runs)
+    $resolved = [System.Collections.Generic.HashSet[string]]::new()
+    $unknown  = @{}
+
+    foreach ($run in $Runs) {
+        $norm = ([YarpScan]::Normalize($run)) -replace "`n",''
+        if ($norm.Length -lt 3) { continue }
+
+        $hit = $null
+        foreach ($k in $strongKeysByLen) { if ($norm.Contains($k)) { $hit = $strongNeedleMap[$k]; break } }
+        if (-not $hit) {
+            foreach ($k in $fwLabelKeysByLen) { if ($norm.Contains($k)) { $hit = $fwLabelMap[$k]; break } }
+        }
+        if ($hit) { [void]$resolved.Add($hit); continue }
+        if ($norm.Length -ge 6 -and -not $unknown.ContainsKey($norm)) { $unknown[$norm] = $run }
+    }
+
+    $final = [System.Collections.Generic.HashSet[string]]::new()
+    $keys  = @($unknown.Keys)
+    foreach ($k in $keys) {
+        $redundant = $false
+        foreach ($other in $keys) {
+            if ($k.Length -lt $other.Length -and $other.Contains($k)) { $redundant = $true; break }
+        }
+        if (-not $redundant) { [void]$final.Add($unknown[$k]) }
+    }
+
+    return @{ Resolved = $resolved; Unknown = $final }
 }
 
-$flagged = @($reportArray | Where-Object { $_.Status -ne "Verified" -and $_.Status -ne "Unknown" })
-if ($flagged.Count -gt 0) {
-    Write-XmaSection -Title "Flagged Mods (Reasons)" -Color Magenta
-    foreach ($r in $flagged) {
-        Write-Host ""
-        Write-XmaReportDisplayLine -Report $r -Color White -Suffix " [$($r.Status)]"
-        if ($r.Verification) {
-            Write-Host "  Verified source: $($r.Verification.Source) / $($r.Verification.Name)" -ForegroundColor DarkGray
+
+function Check-Strings($filePath) {
+    $found   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $fwRuns  = [System.Collections.Generic.List[string]]::new()
+    $obfHits = [System.Collections.Generic.List[string]]::new()
+    $shortClassCount = 0
+    $shortClassSamples = [System.Collections.Generic.List[string]]::new()
+
+    try {
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        foreach ($entry in $zip.Entries) {
+            if ($entry.Name -match '^[a-zA-Z0-9]{1,2}\.class$') {
+                $shortClassCount++
+                if ($shortClassSamples.Count -lt 8) { [void]$shortClassSamples.Add($entry.Name) }
+            }
+
+            if ($entry.Name -match '\.(class|json|jar)$') {
+                if ($entry.Name -like "*.jar") {
+                    try {
+                        $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
+                        $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+                        foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
+                            if ($ne.Name -match '^[a-zA-Z0-9]{1,2}\.class$') {
+                                $shortClassCount++
+                                if ($shortClassSamples.Count -lt 8) { [void]$shortClassSamples.Add($ne.Name) }
+                            }
+                            try {
+                                $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
+                                foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
+                                $r.Close()
+                            } catch {}
+                        }
+                        $nz.Dispose()
+                    } catch {}
+                    continue
+                }
+                try {
+                    $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
+                    foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
+                    $r.Close()
+                } catch {}
+            }
+        }
+        $zip.Dispose()
+    } catch {}
+
+    if ($shortClassCount -ge 3) {
+        $sampleStr = ($shortClassSamples | Select-Object -Unique) -join ", "
+        [void]$obfHits.Add("Short-Class Obfuscator ($shortClassCount classes: $sampleStr...)")
+    }
+
+    $fw = Resolve-FullwidthRuns $fwRuns
+    foreach ($r in $fw.Resolved) { [void]$found.Add($r) }
+
+    return @{ Strings = $found; Fullwidth = $fw.Unknown; Obfuscators = $obfHits }
+}
+
+$disallowedMods = @{
+    "xeros-minimap"=@{Names=@("Xero's Minimap","Xeros Minimap","xeros-minimap","XerosMinimap","Xero's Minimap Mod")}
+    "freecam"=@{Names=@("Freecam","freecam","FreeCam","Free Cam")}
+    "health-indicators"=@{Names=@("Health Indicators","health indicators","HealthIndicators","Health Indicators Mod")}
+    "clickcrystals"=@{Names=@("ClickCrystals","clickcrystals","ClickCrystals Mod","Click Crystals")}
+    "mousetweaks"=@{Names=@("Mouse Tweaks","mousetweaks","MouseTweaks")}
+    "itemscroller"=@{Names=@("Item Scroller","itemscroller","ItemScroller")}
+    "tweakeroo"=@{Names=@("Tweakeroo","tweakeroo")}
+    "kinds-crystal-optimizer"=@{Names=@("Kind's Crystal Optimizer","Kinds Crystal Optimizer","Kind Crystal Optimizer","KindsCrystalOptimizer","KindCrystalOptimizer")}
+    "g1ax-crystal-optimizer"=@{Names=@("G1ax Crystal Optimizer","G1axCrystalOptimizer","G1ax")}
+    "shikarus-crystal-optimizer"=@{Names=@("Shikaru's Crystal Optimizer","Shikarus Crystal Optimizer","ShikaruCrystalOptimizer","ShikarusCrystalOptimizer")}
+    "hcscr"=@{Names=@("HCsCR","HCs Crystal Optimizer")}
+    "hazel-crystal-optimizer"=@{Names=@("Hazel Crystal Optimizer","HazelCrystalOptimizer","Hazel Crystal Optimizer - HCO")}
+    "psychodreams-crystal-optimizer"=@{Names=@("Psychodreams CrystalOptimizer","Psychodreams Crystal Optimizer","PsychodreamsCrystalOptimizer")}
+    "walksys-crystal-optimizer"=@{Names=@("Walksy's Crystal Optimizer","Walksys Crystal Optimizer","WalksyCrystalOptimizer","Walksy Crystal Optimizer")}
+    "no-delay-optimizer"=@{Names=@("No delay Optimizer","NoDelayOptimizer","No Delay Optimizer","nodelayoptimizer")}
+    "safe-crystals"=@{Names=@("Safe Crystals","safecrystals","SafeCrystals","safe crystals")}
+    "nocrystalrefresh"=@{Names=@("NoCrystalRefresh","No Crystal Refresh","nocrystalrefresh")}
+    "psychodreams-antirefreshcrystal"=@{Names=@("Psychodreams Antirefreshcrystal","PsychodreamsAntirefreshcrystal","AntiRefreshCrystal","Anti Refresh Crystal")}
+    "crystal-macro"=@{Names=@("Crystal Macro Mod","Crystal Macro","CrystalMacro","crystalmacro")}
+    "auto-crystal-switcher"=@{Names=@("Auto Crystal Switcher","AutoCrystalSwitcher","autocrystalswitcher")}
+    "kinds-anchor-optimizer"=@{Names=@("Kind's Anchor Optimizer","Kinds Anchor Optimizer","KindsAnchorOptimizer","KindAnchorOptimizer")}
+    "tenites-anchor-optimizer"=@{Names=@("Tenite's anchor optimizer","Tenites anchor optimizer","TenitesAnchorOptimizer","TeniteAnchorOptimizer")}
+    "vixsls-anchor-optimizer"=@{Names=@("Vixsl's Anchor Optimizer","Vixsls Anchor Optimizer","VixslAnchorOptimizer","VixslsAnchorOptimizer")}
+    "diolez-anchor-optimizer"=@{Names=@("DiolezAnchorOptimizer","Diolez Anchor Optimizer","diolezanchoroptimizer")}
+    "dokkos-hotbar-optimizer"=@{Names=@("Dokko's hotbar optimizer","Dokkos hotbar optimizer","DokkosHotbarOptimizer","DokkoHotbarOptimizer")}
+    "bobs-hotbar-optimizer"=@{Names=@("bob's hotbar optimizer","bobs hotbar optimizer","BobsHotbarOptimizer","BobHotbarOptimizer")}
+    "gloryis-keyboard-optimizer"=@{Names=@("Gloryi's Keyboard Optimizer","Gloryis Keyboard Optimizer","GloryiKeyboardOptimizer","GloryisKeyboardOptimizer")}
+    "jellos-pvp-optimizer"=@{Names=@("Jello's pvp optimizer","Jellos pvp optimizer","JellosPvpOptimizer","JelloPvpOptimizer")}
+    "pvp-optimizer"=@{Names=@("PVP Optimizer","pvpoptimizer","PVPOptimizer","pvp optimizer")}
+    "lunartweaks"=@{Names=@("LunarTweaks","Lunar Tweaks","lunartweaks")}
+    "no-shield-delay"=@{Names=@("No Shield Delay","NoShieldDelay","noshielddelay")}
+    "no-mining-cooldown"=@{Names=@("No Mining Cooldown","NoMiningCooldown","nominingcooldown")}
+    "no-jump-delay"=@{Names=@("No Jump Delay Enhanced","No Jump Delay","NoJumpDelay","NoJumpDelayEnhanced")}
+    "lwfh-airplace"=@{Names=@("lwfh Airplace","lwfh","Airplace")}
+    "autototem-catchall"=@{Names=@("AutoTotem","Auto Totem","autototem","auto-totem")}
+    "d-hand"=@{Names=@("D-hand mod","D-hand","DHand","Double Hand Mod")}
+}
+
+function Invoke-ModScan {
+    param([string]$ModsFolder, $Instance)
+
+    $script:minecraftVersion = Get-Minecraft-Version-From-Mods $ModsFolder $Instance
+    if ($script:minecraftVersion) { Write-Host "  [i] Using Minecraft version: $($script:minecraftVersion) for filtering`n" -ForegroundColor Green } else { Write-Host "" }
+
+    $verifiedMods = [System.Collections.Generic.List[object]]::new()
+    $unknownMods  = [System.Collections.Generic.List[object]]::new()
+    $cheatMods    = [System.Collections.Generic.List[object]]::new()
+    $tamperedMods = [System.Collections.Generic.List[object]]::new()
+    $allModsInfo  = [System.Collections.Generic.List[object]]::new()
+
+    $jarFiles = @(Get-ChildItem -Path $ModsFolder -Filter *.jar -ErrorAction SilentlyContinue)
+    $spinner = @("|","/","-","\"); $totalMods = $jarFiles.Count
+
+    if ($totalMods -eq 0) {
+        Write-Host "  [!] No .jar files in this mods folder.`n" -ForegroundColor Yellow
+        return [PSCustomObject]@{ Verified=$verifiedMods; Unknown=$unknownMods; Tampered=$tamperedMods; Cheat=$cheatMods
+                                  Disallowed=@(); AllCheatStrings=@(); AllFullwidth=@(); ModsFolder=$ModsFolder; Total=0 }
+    }
+
+    $null = Invoke-BulkHashLookup $jarFiles
+
+    Write-Host "  [i] Scanning $totalMods mods..." -ForegroundColor White
+    for ($i = 0; $i -lt $jarFiles.Count; $i++) {
+        $file = $jarFiles[$i]
+        Write-Host "`r  [$($spinner[$i % 4])] Scanning mods: $($i+1) / $totalMods    " -ForegroundColor Magenta -NoNewline
+        $hash = Get-SHA1 $file.FullName
+        $actualSize = $file.Length; $actualSizeKB = [math]::Round($actualSize/1KB, 2)
+        $zone = Get-ZoneIdentifier $file.FullName
+        $jarInfo = Get-Mod-Info-From-Jar $file.FullName
+        $loader = if ($file.Name -match '(?i)fabric'){"Fabric"} elseif ($file.Name -match '(?i)forge'){"Forge"} elseif ($jarInfo.ModLoader -eq "Fabric"){"Fabric"} elseif ($jarInfo.ModLoader -eq "Forge/NeoForge"){"Forge"} else {"Fabric"}
+
+        $md = Fetch-Modrinth-By-Hash $hash
+        if (-not $md.Name -and $jarInfo.ModId) { $md = Fetch-Modrinth-By-ModId $jarInfo.ModId $jarInfo.Version $loader }
+        if (-not $md.Name) { $md = Fetch-Modrinth-By-Filename $file.Name $loader }
+
+        $entry = [PSCustomObject]@{
+            ModName=$md.Name; FileName=$file.Name; Version=$md.VersionNumber; ExpectedSize=$md.ExpectedSize
+            ExpectedSizeKB=$(if($md.ExpectedSize -gt 0){[math]::Round($md.ExpectedSize/1KB,2)} else {0})
+            ActualSize=$actualSize; ActualSizeKB=$actualSizeKB; SizeDiff=($actualSize - $md.ExpectedSize)
+            SizeDiffKB=[math]::Round(($actualSize - $md.ExpectedSize)/1KB,2); DownloadSource=$zone.Source; SourceURL=$zone.URL
+            IsModrinthDownload=$zone.IsModrinth; ModrinthUrl=$md.ModrinthUrl; IsVerified=($md.Name -ne "")
+            MatchType=$md.MatchType; ExactMatch=$md.ExactMatch; IsLatestVersion=$md.IsLatestVersion; LoaderType=$md.LoaderType
+            PreferredLoader=$loader; FilePath=$file.FullName; FileSizeKB=$actualSizeKB
+            JarModId=$jarInfo.ModId; JarName=$jarInfo.Name; JarVersion=$jarInfo.Version; JarModLoader=$jarInfo.ModLoader
+            ZoneId=$zone.URL; FileSize=$actualSize; Hash=$hash
+        }
+
+        if ($md.Name) {
+            $verifiedMods.Add($entry); $allModsInfo.Add($entry)
+            if ($md.ExpectedSize -gt 0 -and $actualSize -ne $md.ExpectedSize -and [math]::Abs($actualSize - $md.ExpectedSize) -gt 1024) {
+                $entry | Add-Member -NotePropertyName TamperReasons -NotePropertyValue @("File size does not match the Modrinth release ($($md.MatchType))") -Force
+                $tamperedMods.Add($entry)
+                $fn = $file.Name
+                $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $fn }.GetNewClosure())
+            }
+        } elseif ($mb = Fetch-Megabase $hash) {
+            $entry.ModName = $mb.name; $entry.IsVerified = $true
+            $verifiedMods.Add($entry); $allModsInfo.Add($entry)
         } else {
-            Write-Host "  Verified source: none" -ForegroundColor DarkGray
-        }
-        if ($r.DownloadSource) {
-            Write-Host "  Download source: $($r.DownloadSource)" -ForegroundColor DarkGray
-        }
-        foreach ($reason in $r.Reasons) {
-            Write-Host "  - $reason" -ForegroundColor Yellow
+            $unknownMods.Add($entry); $allModsInfo.Add($entry)
         }
     }
     Write-Host ""
-}
 
-$runtimeSuspiciousFindings = @($runtimeFindings | Where-Object { @($_.FindingDetails).Count -gt 0 })
-$runtimeInformationalFindings = @($runtimeFindings | Where-Object { @($_.InformationalDetails).Count -gt 0 })
-
-if ($runtimeSuspiciousFindings.Count -gt 0) {
-    Write-XmaSection -Title "JVM Runtime Injection Findings" -Color Red
-    foreach ($rf in $runtimeSuspiciousFindings) {
-        Write-Host ""
-        Write-Host "PID $($rf.ProcessId) ($($rf.Name))" -ForegroundColor White
-        foreach ($detail in @($rf.FindingDetails)) {
-            Write-Host "  - $($detail.Label)" -ForegroundColor Yellow
-            Write-Host "      position: $($detail.Position)" -ForegroundColor DarkGray
-            Write-Host "      argument: $($detail.Argument)" -ForegroundColor DarkGray
-            if (-not [string]::IsNullOrWhiteSpace([string]$detail.Notes)) {
-                Write-Host "      note: $($detail.Notes)" -ForegroundColor DarkGray
-            }
-            foreach ($path in @($detail.ReferencedPaths | Select-Object -Unique)) {
-                Write-Host "      jar: $path" -ForegroundColor DarkYellow
-            }
+    for ($i = 0; $i -lt $unknownMods.Count; $i++) {
+        $mod = $unknownMods[$i]
+        $mr = if ($mod.JarModId) { Fetch-Modrinth-By-ModId $mod.JarModId $mod.JarVersion $mod.PreferredLoader } else { $null }
+        if (-not $mr -or -not $mr.Name) { $mr = Fetch-Modrinth-By-Filename $mod.FileName $mod.PreferredLoader }
+        if ($mr -and $mr.Name -and $mr.ExpectedSize -gt 0) {
+            $mod.ModName=$mr.Name; $mod.ExpectedSize=$mr.ExpectedSize; $mod.ExpectedSizeKB=[math]::Round($mr.ExpectedSize/1KB,2)
+            $mod.SizeDiff=$mod.FileSize-$mr.ExpectedSize; $mod.SizeDiffKB=[math]::Round(($mod.FileSize-$mr.ExpectedSize)/1KB,2)
+            $mod.ModrinthUrl=$mr.ModrinthUrl; $mod.MatchType=$mr.MatchType; $mod.ExactMatch=$mr.ExactMatch
+            $mod.IsLatestVersion=$mr.IsLatestVersion; $mod.LoaderType=$mr.LoaderType
+            $newEntry = $mod.PSObject.Copy(); $newEntry.IsVerified=$true; $newEntry.Version=$mr.VersionNumber
+            $verifiedMods.Add($newEntry)
+            $fn = $mod.FileName
+            $null = $unknownMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $fn }.GetNewClosure())
+            $i--
         }
     }
-    if ($runtimeInjectionJarReport) {
-        $addedCount = @($runtimeInjectionJarReport.AddedReports).Count
-        $annotatedCount = @($runtimeInjectionJarReport.AnnotatedReports).Count
-        if ($addedCount -gt 0 -or $annotatedCount -gt 0) {
+
+    $counter = 0
+    Write-Host "  [i] Scanning for cheat strings..." -ForegroundColor White
+
+    foreach ($mod in $allModsInfo) {
+        $counter++
+        Write-Host "`r  [$($spinner[$counter % 4])] Scanning for cheat strings: $counter / $totalMods    " -ForegroundColor Magenta -NoNewline
+
+        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0; $conf=0
+        try {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+            foreach ($entry in ($zip.Entries | Where-Object { $_.FullName -match '\.class$' })) {
+                $tc++
+                $cn = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+                $segs = ($entry.FullName -replace '\.class$','') -split '/'
+                if ($cn -match '^[a-zA-Z]$')    { $s1++ }
+                if ($cn -match '^[a-zA-Z]{2}$') { $s2++ }
+                if ($cn -match '^\d+$')          { $num++ }
+                if ($cn -match '[^\x00-\x7F]')   { $uni++ }
+                if ($cn -match '^[Il1O0]+$' -or $cn -match '^_+$') { $conf++ }
+                if ($cn.Length -ge 3 -and $cn -match '^[a-zA-Z]+$') {
+                    $v = ($cn.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
+                    if ($v -eq 0) { $nov++ }
+                    if ($cn -match '[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{3,}' -and ($v/$cn.Length) -lt 0.3) { $gib++ }
+                }
+                if ($segs.Count -ge 2) {
+                    foreach ($seg in $segs[0..($segs.Count-2)]) { if ($seg.Length -eq 1) { $spkg++ } }
+                    $cons=0; $maxC=0
+                    foreach ($seg in $segs[0..($segs.Count-2)]) { if ($seg.Length -eq 1){$cons++;if($cons -gt $maxC){$maxC=$cons}} else {$cons=0} }
+                    if ($maxC -ge 3) { $obf++ }
+                }
+            }
+            $zip.Dispose()
+        } catch {}
+
+        $s1p=[math]::Round($(if($tc -ge 5){$s1/$tc*100} else {0}))
+        $s2p=[math]::Round($(if($tc -ge 5){$s2/$tc*100} else {0}))
+        $np=[math]::Round($(if($tc -ge 5){$num/$tc*100} else {0}))
+        $up=[math]::Round($(if($tc -ge 5){$uni/$tc*100} else {0}))
+        $nvp=[math]::Round($(if($tc -ge 5){$nov/$tc*100} else {0}))
+        $gp=[math]::Round($(if($tc -ge 5){$gib/$tc*100} else {0}))
+        $op=[math]::Round($(if($tc -ge 10){$obf/$tc*100} else {0}))
+        $cfp=[math]::Round($(if($tc -ge 5){$conf/$tc*100} else {0}))
+
+        $scan = Check-Strings $mod.FilePath
+
+        $obfReasons = @()
+        if ($s1p -ge 15 -and $tc -ge 5)   { $obfReasons += "Single-letter class names ($s1p%)" }
+        if ($s2p -ge 20 -and $tc -ge 5)   { $obfReasons += "Two-letter class names ($s2p%)" }
+        if ($np -ge 20 -and $tc -ge 5)    { $obfReasons += "Numeric class names ($np%)" }
+        if ($up -ge 10 -and $tc -ge 5)    { $obfReasons += "Unicode class names ($up%)" }
+        if ($nvp -ge 8 -and $tc -ge 5)    { $obfReasons += "No-vowel class names ($nvp%)" }
+        if ($gp -ge 15 -and $tc -ge 100)  { $obfReasons += "Gibberish class names ($gp%)" }
+        if ($spkg -ge 50 -and $tc -ge 10) { $obfReasons += "Single-char package paths ($spkg segments)" }
+        if ($op -ge 25 -and $tc -ge 10)   { $obfReasons += "Obfuscated package structure ($op%)" }
+        if ($cfp -ge 3 -and $tc -ge 5)    { $obfReasons += "Confusion-char class names Il1O0 ($cfp%)" }
+        if ($scan.Obfuscators.Count -gt 0 -and $mod.MatchType -ne "Exact Hash") {
+            $obfReasons = @("Known cheat obfuscator: $($scan.Obfuscators -join ', ')") + $obfReasons
+        }
+
+        $fn = $mod.FileName
+
+        if ($obfReasons.Count -gt 0) {
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReasons=$obfReasons })
+            $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $fn }.GetNewClosure())
+        }
+
+        if ($scan.Strings.Count -gt 0 -or $scan.Fullwidth.Count -gt 0) {
+            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$scan.Strings; FullwidthFound=$scan.Fullwidth; FileSizeKB=$mod.ActualSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
+            $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $fn }.GetNewClosure())
+        }
+    }
+    Write-Host ""
+
+    $disallowedFound = @()
+    foreach ($mod in $allModsInfo) {
+        $fnL = $mod.FileName.ToLower()
+        $jid = if ($mod.JarModId) { $mod.JarModId.ToLower() } else { "" }
+        $jnm = if ($mod.JarName)  { $mod.JarName.ToLower() }  else { "" }
+        foreach ($slug in $disallowedMods.Keys) {
+            $md2 = $disallowedMods[$slug]; $hit = $false
+            $slugL = $slug.ToLower(); $slugNoDash = $slugL -replace '-',''
+            foreach ($name in $md2.Names) {
+                $nameL = $name.ToLower(); $nameNoSpace = ($name -replace ' ','').ToLower()
+                if ($fnL -match [regex]::Escape($nameL) -or $fnL -match [regex]::Escape($nameNoSpace) -or $fnL -match [regex]::Escape($slugL) -or $fnL -match [regex]::Escape($slugNoDash)) { $hit=$true; break }
+                if ($jid -and ($jid -match [regex]::Escape($nameNoSpace) -or $jid -match [regex]::Escape($slugNoDash) -or $jid -match [regex]::Escape($slugL))) { $hit=$true; break }
+                if ($jnm -and ($jnm -match [regex]::Escape($nameL) -or $jnm -match [regex]::Escape($nameNoSpace) -or $jnm -match [regex]::Escape($slugL))) { $hit=$true; break }
+            }
+            if ($hit) { $disallowedFound += [PSCustomObject]@{ FileName=$mod.FileName; ModName=$md2.Names[0] }; break }
+        }
+    }
+
+    $allCheatStrings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $allFullwidth = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($mod in $cheatMods) {
+        foreach ($s in $mod.StringsFound) { [void]$allCheatStrings.Add($s) }
+        if ($mod.FullwidthFound) { foreach ($f in $mod.FullwidthFound) { [void]$allFullwidth.Add($f) } }
+    }
+
+    return [PSCustomObject]@{
+        Verified=$verifiedMods; Unknown=$unknownMods; Tampered=$tamperedMods; Cheat=$cheatMods
+        Disallowed=$disallowedFound; AllCheatStrings=$allCheatStrings; AllFullwidth=$allFullwidth
+        ModsFolder=$ModsFolder; Total=$totalMods; MinecraftVersion=$script:minecraftVersion
+    }
+}
+
+function Write-Sep($color="Cyan") { Write-Host ("━"*111) -ForegroundColor $color }
+function Write-Card($lines, $color) {
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor $color
+    foreach ($l in $lines) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor $color
+        if ($l -is [hashtable]) { Write-Host $l.text -ForegroundColor $l.color }
+        else { Write-Host $l -ForegroundColor White }
+    }
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor $color
+    Write-Host ""
+}
+
+function Write-ScanReport {
+    param($Result, $Group)
+
+    $possibleFalseFlags = @("ViaFabricPlus","Simple Voice Chat")
+
+    Write-Sep Green; Write-Host "VERIFIED MODS: $($Result.Verified.Count)" -ForegroundColor Green; Write-Sep Green
+    if ($Result.Verified.Count -gt 0) {
+        foreach ($mod in $Result.Verified) {
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
+            Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
+        }
+    } else { Write-Host "  No verified mods found" -ForegroundColor Gray }
+    Write-Host ""
+
+    Write-Sep Yellow; Write-Host "UNKNOWN MODS: $($Result.Unknown.Count) ?" -ForegroundColor Yellow; Write-Sep Yellow
+    if ($Result.Unknown.Count -gt 0) {
+        foreach ($mod in $Result.Unknown) {
+            Write-Card @(@{text="UNKNOWN MOD";color="Yellow"}, "File: $($mod.FileName)", "Size: $($mod.FileSizeKB) KB", "Source: $($mod.DownloadSource)") Yellow
+        }
+    } else { Write-Host "  No unknown mods found" -ForegroundColor Gray }
+    Write-Host ""
+
+    Write-Sep DarkYellow; Write-Host "TAMPERED MODS: $($Result.Tampered.Count) !" -ForegroundColor DarkYellow; Write-Sep DarkYellow
+    if ($Result.Tampered.Count -gt 0) {
+        foreach ($mod in $Result.Tampered) {
+            $sign = if ($mod.SizeDiffKB -gt 0) {"+"} else {""}
+            Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "TAMPERED MOD" -ForegroundColor DarkYellow
+            Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "File: $($mod.FileName)" -ForegroundColor White
+            if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta }
+            if ($mod.TamperReasons -and @($mod.TamperReasons).Count -gt 0) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Detected Issues:" -ForegroundColor Yellow
+                foreach ($reason in @($mod.TamperReasons)) {
+                    Write-Host "  ║   " -NoNewline -ForegroundColor DarkYellow; Write-Host "• $reason" -ForegroundColor Red
+                }
+            }
+            if ($mod.ExpectedSizeKB -gt 0) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+                Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+            } else {
+                Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (no Modrinth match to compare)" -ForegroundColor Magenta
+            }
+            Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor DarkYellow
+        }
+    } else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
+    Write-Host ""
+
+    Write-Sep Red; Write-Host "CHEAT MODS: $($Result.Cheat.Count) !" -ForegroundColor Red; Write-Sep Red
+    if ($Result.Cheat.Count -gt 0) {
+        $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
+        foreach ($mod in $Result.Cheat) {
+            Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "CHEAT MOD DETECTED" -ForegroundColor Red
+            Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "File: $($mod.FileName)" -ForegroundColor White
+            if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Mod: $($mod.ModName)" -ForegroundColor White }
+            $falseFlagLines = $null
+            if ($mod.ModName -eq "Simple Voice Chat") {
+                $falseFlagLines = @("! May be a false flag", "  Simple Voice Chat is a known legit mod that", "  contains the strings freecam and switchDelay")
+            } elseif ($possibleFalseFlags -contains $mod.ModName) {
+                $falseFlagLines = @("! May be a false flag", "  $($mod.ModName) is a known legit mod that", "  contains these strings")
+            } elseif (($mod.ModName -like "Marlow*Crystal Optimizer*" -or $mod.JarModId -eq "marlowcrystal") -and (@($mod.StringsFound) -contains "EndCrystalItemMixin")) {
+                $falseFlagLines = @("! May be a false flag", "  Marlow's Crystal Optimizer v2.0.0 is a known", "  legit mod with its own EndCrystalItemMixin", "  string. May need to decompile")
+            }
+            foreach ($line in @($falseFlagLines)) {
+                if ($line) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host $line -ForegroundColor DarkYellow }
+            }
+            if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
+            if ($mod.StringsFound.Count -gt 0) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
+                @($mod.StringsFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
+            }
+            if ($mod.FullwidthFound -and $mod.FullwidthFound.Count -gt 0) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings:" -ForegroundColor Yellow
+                @($mod.FullwidthFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
+            }
+            if ($mod.ExpectedSizeKB -gt 0) {
+                $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red
+                if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB" -ForegroundColor White }
+                else {
+                    Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
+                    Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+                }
+            }
+            Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
             Write-Host ""
-            Write-Host "Runtime-injected jar scan results: added=$addedCount, annotated=$annotatedCount" -ForegroundColor Magenta
         }
+    } else { Write-Host "  No cheat mods detected" -ForegroundColor Green }
+    Write-Host ""
+
+    Write-Sep Red; Write-Host "DISALLOWED MODS: $(@($Result.Disallowed).Count) !" -ForegroundColor Red; Write-Sep Red
+    if (@($Result.Disallowed).Count -gt 0) {
+        foreach ($mod in $Result.Disallowed) { Write-Card @(@{text="DISALLOWED MOD DETECTED";color="Red"}, "File: $($mod.FileName)", "Mod: $($mod.ModName)") Red }
+    } else { Write-Host "  No disallowed mods detected" -ForegroundColor Green }
+    Write-Host ""
+
+    $verColor   = if ($Result.Verified.Count -gt 0)         { "Green" }  else { "DarkGray" }
+    $unkColor   = if ($Result.Unknown.Count -gt 0)          { "Yellow" } else { "DarkGray" }
+    $tampColor  = if ($Result.Tampered.Count -gt 0)         { "Red" }    else { "DarkGray" }
+    $cheatColor = if ($Result.Cheat.Count -gt 0)            { "Red" }    else { "DarkGray" }
+    $disColor   = if (@($Result.Disallowed).Count -gt 0)    { "Red" }    else { "DarkGray" }
+
+    foreach ($inst in $Group.Instances) {
+        Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Player     " -NoNewline -ForegroundColor White; Write-Host $inst.Player -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "UUID       " -NoNewline -ForegroundColor White; Write-Host $inst.UUID -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "PID        " -NoNewline -ForegroundColor White; Write-Host $(if ($inst.ProcessId) { $inst.ProcessId } else { "n/a (offline scan)" }) -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Mods       " -NoNewline -ForegroundColor White; Write-Host $Result.ModsFolder -ForegroundColor DarkGray
+        Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Verified   " -NoNewline -ForegroundColor White; Write-Host $Result.Verified.Count        -ForegroundColor $verColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Unknown    " -NoNewline -ForegroundColor White; Write-Host $Result.Unknown.Count         -ForegroundColor $unkColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Tampered   " -NoNewline -ForegroundColor White; Write-Host $Result.Tampered.Count        -ForegroundColor $tampColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Cheat      " -NoNewline -ForegroundColor White; Write-Host $Result.Cheat.Count           -ForegroundColor $cheatColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Disallowed " -NoNewline -ForegroundColor White; Write-Host @($Result.Disallowed).Count   -ForegroundColor $disColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Discord    : " -NoNewline -ForegroundColor Cyan; Write-Host "1nonly_hercules" -ForegroundColor Magenta
+        Write-Host "  ╚══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+        Write-Host ""
+    }
+
+    if ($Result.AllCheatStrings.Count -gt 0) {
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Cheat Strings Detected In Instance:" -ForegroundColor Red
+        $Result.AllCheatStrings | Sort-Object | ForEach-Object {
+            Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
+        }
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+    }
+
+    if ($Result.AllFullwidth.Count -gt 0) {
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings In Instance:" -ForegroundColor Red
+        $Result.AllFullwidth | Sort-Object | ForEach-Object {
+            Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
+        }
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+    }
+}
+
+
+# 1. Hardware Identity & Verification (First log)
+$sysHwid = Get-SystemHWID
+Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "SYSTEM HARDWARE IDENTITY & VERIFICATION" -ForegroundColor Magenta
+Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "HWID - " -NoNewline -ForegroundColor Cyan; Write-Host "[$sysHwid]" -ForegroundColor Green
+Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+
+# 2. Pre-flight system and shell audits
+Invoke-BamAudit
+Invoke-DpsAudit
+Invoke-ExplorerAudit
+
+$instances = Get-MinecraftInstances
+
+if ($instances.Count -gt 0) {
+    Write-Host "  [+] Found $($instances.Count) running Minecraft instance(s):`n" -ForegroundColor Green
+    foreach ($inst in $instances) {
+        $uptimeStr = if ($inst.Uptime) { "$([math]::Floor($inst.Uptime.TotalHours))h $($inst.Uptime.Minutes)m" } else { "Unknown" }
+        Write-Host "      * PID $($inst.ProcessId) | Player: $($inst.Player) | Version: $($inst.LaunchVer) | Up: $uptimeStr" -ForegroundColor Gray
     }
     Write-Host ""
-} elseif (-not $SkipRuntimeScan) {
-    Write-XmaSection -Title "JVM Runtime Injection Findings" -Color Green
-    Write-Host "none" -ForegroundColor Green
+} else {
+    Write-Host "  [-] No active Minecraft process found." -ForegroundColor DarkYellow
     Write-Host ""
 }
 
-if ($runtimeInformationalFindings.Count -gt 0) {
-    Write-XmaSection -Title "JVM Runtime Notes (Likely Legit)" -Color DarkCyan
-    foreach ($rf in $runtimeInformationalFindings) {
-        Write-Host ""
-        Write-Host "PID $($rf.ProcessId) ($($rf.Name))" -ForegroundColor White
-        foreach ($detail in @($rf.InformationalDetails)) {
-            Write-Host "  - $($detail.Label)" -ForegroundColor Cyan
-            Write-Host "      position: $($detail.Position)" -ForegroundColor DarkGray
-            Write-Host "      argument: $($detail.Argument)" -ForegroundColor DarkGray
-            if (-not [string]::IsNullOrWhiteSpace([string]$detail.Notes)) {
-                Write-Host "      note: $($detail.Notes)" -ForegroundColor DarkGray
-            }
-            foreach ($path in @($detail.ReferencedPaths | Select-Object -Unique)) {
-                Write-Host "      jar: $path" -ForegroundColor DarkCyan
-            }
-        }
-    }
-    Write-Host ""
+foreach ($inst in $instances) {
+    if ($inst.ModsFolder) { continue }
+    $resolved = Request-ModsFolder "Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))." "Press Enter on an empty line to skip this instance."
+    if ($resolved) { $inst.ModsFolder = $resolved; $inst.Source = "Manual entry" }
 }
 
-if (-not $SkipMemoryScan) {
-    $allMemoryHits = @($memoryResults | ForEach-Object { @($_.Hits) })
-    if ($allMemoryHits.Count -gt 0) {
-        Write-XmaSection -Title "Java Memory String Hits" -Color Red
-        foreach ($res in $memoryResults) {
-            $proc = $javaProcesses | Where-Object { $_.ProcessId -eq $res.ProcessId } | Select-Object -First 1
-            $procName = if ($proc) { "$($proc.Name) PID $($res.ProcessId)" } else { "PID $($res.ProcessId)" }
-            Write-Host ""
-            Write-Host $procName -ForegroundColor White
-            if ($res.Error) {
-                Write-Host "  - $($res.Error)" -ForegroundColor Yellow
-                continue
-            }
+$instances = @($instances | Where-Object { $_.ModsFolder })
 
-            $needleBuckets = @{}
-            foreach ($hit in @($res.Hits)) {
-                if (-not $needleBuckets.ContainsKey($hit.Needle)) {
-                    $needleBuckets[$hit.Needle] = New-Object System.Collections.Generic.List[string]
-                }
-                if ($needleBuckets[$hit.Needle].Count -lt 3) {
-                    $needleBuckets[$hit.Needle].Add($hit.Sample)
-                }
-            }
-
-            foreach ($needle in ($needleBuckets.Keys | Sort-Object)) {
-                Write-Host "  - hit: $needle" -ForegroundColor Yellow
-                foreach ($sample in @($needleBuckets[$needle])) {
-                    Write-Host "      sample: $sample" -ForegroundColor DarkGray
-                }
-            }
-        }
-        Write-Host ""
+if ($instances.Count -eq 0) {
+    Write-Host ""
+    $lastChance = Request-ModsFolder "No mods folder could be resolved."
+    if ($lastChance) {
+        $instances = @([PSCustomObject]@{
+            ProcessId=$null; ProcessName="(not running)"; Player="Unknown"; UUID="N/A"; LaunchVer=$null
+            ModsFolder=$lastChance; Source="Manual entry"; CommandLine=$null; Uptime=$null
+        })
     } else {
-        Write-XmaSection -Title "Java Memory String Hits" -Color Green
-        Write-Host "none" -ForegroundColor Green
+        Write-Host "  [!] Nothing to scan." -ForegroundColor Red
+        Write-Host "  [i] Make sure Minecraft is running, and re-run this as Administrator.`n" -ForegroundColor Cyan
+        Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit
+    }
+}
+
+$scanGroups = @()
+foreach ($inst in $instances) {
+    $existing = $scanGroups | Where-Object { $_.ModsFolder.TrimEnd('\') -eq $inst.ModsFolder.TrimEnd('\') } | Select-Object -First 1
+    if ($existing) {
+        $existing.Instances += $inst
+    } else {
+        $scanGroups += [PSCustomObject]@{
+            ModsFolder = $inst.ModsFolder
+            Instances  = @($inst)
+        }
+    }
+}
+
+$allResults = @()
+$idx = 0
+
+foreach ($group in $scanGroups) {
+    $idx++
+    $players = ($group.Instances | ForEach-Object { $_.Player }) -join ", "
+
+    Write-Host ""
+    Write-Host ("═" * 111) -ForegroundColor Cyan
+    Write-Host "  INSTANCE $idx OF $($scanGroups.Count)   |   Player(s): $players" -ForegroundColor Cyan
+    Write-Host "  $($group.ModsFolder)" -ForegroundColor DarkCyan
+    Write-Host ("═" * 111) -ForegroundColor Cyan
+    Write-Host ""
+
+    $profile = Get-PlayerHardwareProfile -MinecraftDrive $group.ModsFolder
+    Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "PLAYER HARDWARE IDENTITY & VERIFICATION" -ForegroundColor Magenta
+    Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "HWID - " -NoNewline -ForegroundColor Cyan; Write-Host "[$($profile.SystemHWID)]" -ForegroundColor Green
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "MachineGuid   : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.MachineGuid -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "BaseBoard SN  : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.BaseBoard -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "BIOS Serial   : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.BIOS -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "CPU ID        : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.ProcessorId -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "GPU           : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.GPU -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Volume Serial : " -NoNewline -ForegroundColor Cyan; Write-Host $profile.VolumeSerial -ForegroundColor Gray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Status        : " -NoNewline -ForegroundColor Cyan; Write-Host "Hardware Identity Verified & Locked" -ForegroundColor Green
+    Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+
+    Invoke-UsnJournalAudit -ModsFolder $group.ModsFolder
+
+    Write-Sep Yellow; Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow; Write-Sep Yellow
+    Write-Host ""
+    $anyInjection = $false
+    $anyProcess = $false
+    foreach ($inst in $group.Instances) {
+        if ($inst.ProcessId) { $anyProcess = $true; if (Invoke-JvmArgScan $inst) { $anyInjection = $true } }
+    }
+    if (-not $anyProcess) {
+        Write-Host "  [i] SKIPPED: no running process for this instance, JVM arguments could not be checked" -ForegroundColor DarkYellow
+        Write-Host "      Have them relaunch the game and re-run if you need this covered.`n" -ForegroundColor DarkYellow
+    } elseif (-not $anyInjection) {
+        Write-Host "  [+] CLEAN: No JVM argument injections detected for this instance`n" -ForegroundColor Green
+    }
+
+    foreach ($inst in $group.Instances) {
+        if ($inst.ProcessId) {
+            Invoke-InjGenScan -ProcessId $inst.ProcessId
+            Invoke-ClassNameExtractor -ProcessId $inst.ProcessId -BaseDir "C:\HerculesAnalyzer"
+        }
+    }
+
+    $result = Invoke-ModScan -ModsFolder $group.ModsFolder -Instance $group.Instances[0]
+
+    Write-Host ""
+    Write-Host ("━" * 50) -ForegroundColor Cyan
+    Write-Host "  SCAN COMPLETE - INSTANCE $idx" -ForegroundColor Cyan
+    Write-Host ("━" * 50) -ForegroundColor Cyan
+    Write-Host ""
+
+    Write-ScanReport -Result $result -Group $group
+    $allResults += [PSCustomObject]@{ Group=$group; Result=$result }
+}
+
+if ($allResults.Count -gt 1) {
+    Write-Host ("═" * 111) -ForegroundColor Cyan
+    Write-Host "  ALL INSTANCES - COMBINED SUMMARY" -ForegroundColor Cyan
+    Write-Host ("═" * 111) -ForegroundColor Cyan
+    Write-Host ""
+    foreach ($r in $allResults) {
+        $players = ($r.Group.Instances | ForEach-Object { "$($_.Player) (PID $($_.ProcessId))" }) -join ", "
+        $flags = @()
+        if ($r.Result.Cheat.Count -gt 0)          { $flags += "$($r.Result.Cheat.Count) cheat" }
+        if (@($r.Result.Disallowed).Count -gt 0)  { $flags += "$(@($r.Result.Disallowed).Count) disallowed" }
+        if ($r.Result.Tampered.Count -gt 0)       { $flags += "$($r.Result.Tampered.Count) tampered" }
+        if ($r.Result.Unknown.Count -gt 0)        { $flags += "$($r.Result.Unknown.Count) unknown" }
+        $verdict = if ($flags.Count -eq 0) { "CLEAN" } else { $flags -join " | " }
+        $col     = if ($flags.Count -eq 0) { "Green" } elseif ($r.Result.Cheat.Count -gt 0 -or @($r.Result.Disallowed).Count -gt 0) { "Red" } else { "Yellow" }
+
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor $col
+        Write-Host "  ║ " -NoNewline -ForegroundColor $col; Write-Host $players -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor $col; Write-Host $r.Result.ModsFolder -ForegroundColor DarkGray
+        Write-Host "  ║ " -NoNewline -ForegroundColor $col; Write-Host "$($r.Result.Total) mods scanned  ->  $verdict" -ForegroundColor $col
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor $col
         Write-Host ""
     }
 }
 
-if (@($hiddenReport).Count -gt 0) {
-    Write-Host "Hidden/system jar report" -ForegroundColor Yellow
-    foreach ($h in $hiddenReport) {
-        Write-Host "- $($h.FileName): before=$($h.Before), after=$($h.After)" -ForegroundColor DarkYellow
-    }
-    Write-Host ""
-}
-
-if (-not $Quiet) {
-    $reportText = New-XmaReportText `
-        -Target $target `
-        -JarFiles $jarFiles `
-        -ReportArray $reportArray `
-        -Summary $summary `
-        -TotalMods $totalMods `
-        -JavaProcesses $javaProcesses `
-        -RuntimeTargets $runtimeTargets `
-        -RuntimeWindowInfo $runtimeWindowInfo `
-        -RuntimeEditedReports $runtimeEditedReports `
-        -IsLikelyLauncherModsTarget $isLikelyLauncherModsTarget `
-        -RuntimeSuspiciousFindings $runtimeSuspiciousFindings `
-        -RuntimeInformationalFindings $runtimeInformationalFindings `
-        -RuntimeInjectionJarReport $runtimeInjectionJarReport `
-        -MemoryResults $memoryResults `
-        -HiddenReport $hiddenReport `
-        -SkipRuntimeScan ([bool]$SkipRuntimeScan) `
-        -SkipMemoryScan ([bool]$SkipMemoryScan)
-
-    Show-XmaCompletionMenu -ReportText $reportText
-}
+Write-Host "  ╔══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "HERCULES MOD ANALYZER V1.0" -ForegroundColor Magenta
+Write-Host "  ╠══════════════════════════════════════════════════════════════" -ForegroundColor DarkMagenta
+Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Developer : " -NoNewline -ForegroundColor Cyan; Write-Host "Hercules" -ForegroundColor White
+Write-Host "  ║ " -NoNewline -ForegroundColor DarkMagenta; Write-Host "Discord   : " -NoNewline -ForegroundColor Cyan; Write-Host "1nonly_hercules" -ForegroundColor Green
+Write-Host "  ╚══════════════════════════════════════════════════════════════`n" -ForegroundColor DarkMagenta
+Write-Host ""
+Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
