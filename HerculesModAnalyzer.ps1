@@ -1257,7 +1257,7 @@ function Get-ZoneIdentifier($p) {
         $raw = Get-Content -Raw -Stream Zone.Identifier $p -ErrorAction SilentlyContinue
         if ($raw -match "HostUrl=(.+)") {
             $url = $matches[1]
-            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord"{"Discord"} "mediafire\.com"{"MediaFire"} "dropbox\.com"{"Dropbox"} "drive\.google\.com"{"Google Drive"} "mega\.nz|mega\.co\.nz"{"MEGA"} "anydesk\.com"{"AnyDesk"} "doomsdayclient\.com"{"DoomsdayClient"} "prestigeclient\.vip"{"PrestigeClient"} "198macros\.com"{"198Macros"} "dqrkis\.xyz"{"Dqrkis"} default{"Other"} }
+            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord\.com|discordapp\.com"{"Discord"} "modrinth\.com"{"Modrinth"} "mediafire\.com"{"MediaFire"} "dropbox\.com"{"Dropbox"} "drive\.google\.com"{"Google Drive"} "mega\.nz|mega\.co\.nz"{"MEGA"} "anydesk\.com"{"AnyDesk"} "doomsdayclient\.com"{"DoomsdayClient"} "prestigeclient\.vip"{"PrestigeClient"} "198macros\.com"{"198Macros"} "dqrkis\.xyz"{"Dqrkis"} default{"Other"} }
             return @{ Source=$src; URL=$url; IsModrinth=$url -match "modrinth\.com" }
         }
     } catch {}
@@ -1849,6 +1849,32 @@ $disallowedMods = @{
     "d-hand"=@{Names=@("D-hand mod","D-hand","DHand","Double Hand Mod")}
 }
 
+function Get-JarAttributeReport {
+    param([string[]]$JarPaths)
+
+    $results = @()
+    foreach ($jarPath in $JarPaths) {
+        try {
+            $item = Get-Item -LiteralPath $jarPath -Force -ErrorAction Stop
+            $attrs = $item.Attributes
+            $hidden = ($attrs -band [System.IO.FileAttributes]::Hidden) -ne 0
+            $system = ($attrs -band [System.IO.FileAttributes]::System) -ne 0
+            if ($hidden -or $system) {
+                $results += [PSCustomObject]@{
+                    FileName = $item.Name
+                    FilePath = $item.FullName
+                    Hidden = $hidden
+                    System = $system
+                    Attributes = $attrs.ToString()
+                }
+            }
+        } catch {
+            Write-Host "  [!] Could not inspect attributes for $jarPath : $($_.Exception.Message)" -ForegroundColor DarkYellow
+        }
+    }
+    return @($results)
+}
+
 function Invoke-ModScan {
     param([string]$ModsFolder, $Instance)
 
@@ -1861,7 +1887,22 @@ function Invoke-ModScan {
     $tamperedMods = [System.Collections.Generic.List[object]]::new()
     $allModsInfo  = [System.Collections.Generic.List[object]]::new()
 
-    $jarFiles = @(Get-ChildItem -Path $ModsFolder -Filter *.jar -ErrorAction SilentlyContinue)
+    $jarFiles = @(Get-ChildItem -Path $ModsFolder -Force -Filter *.jar -File -ErrorAction SilentlyContinue)
+    $attributeFindings = @(Get-JarAttributeReport -JarPaths @($jarFiles | ForEach-Object { $_.FullName }))
+    Write-Sep Yellow
+    Write-Host "HIDDEN / SYSTEM ATTRIBUTE CHECK: $($attributeFindings.Count) finding(s)" -ForegroundColor Yellow
+    Write-Sep Yellow
+    if ($attributeFindings.Count -gt 0) {
+        foreach ($finding in $attributeFindings) {
+            $flags = @()
+            if ($finding.Hidden) { $flags += "Hidden" }
+            if ($finding.System) { $flags += "System" }
+            Write-Host "  [!] $($finding.FileName) | Attributes: $($flags -join ', ')" -ForegroundColor Yellow
+        }
+        Write-Host "  [i] Attributes were reported only; no file attributes were changed.`n" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  [+] No hidden/system .jar attributes detected.`n" -ForegroundColor Green
+    }
     $spinner = @("|","/","-","\"); $totalMods = $jarFiles.Count
 
     if ($totalMods -eq 0) {
@@ -2059,6 +2100,11 @@ function Write-ScanReport {
         foreach ($mod in $Result.Verified) {
             Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
             Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
+            $verifyBasis = if ($mod.MatchType -eq "Exact Hash") { "Exact SHA-1 match in Modrinth database" } else { "Modrinth metadata match ($($mod.MatchType))" }
+            Write-Host "    Verification: $verifyBasis" -ForegroundColor DarkGray
+            Write-Host "    Download source (Windows mark): $($mod.DownloadSource)" -ForegroundColor $(if ($mod.IsModrinthDownload) { "Green" } elseif ($mod.DownloadSource -eq "Unknown") { "DarkYellow" } else { "Cyan" })
+            if ($mod.SourceURL) { Write-Host "    Source URL: $($mod.SourceURL)" -ForegroundColor DarkGray }
+            if ($mod.ModrinthUrl) { Write-Host "    Modrinth page: $($mod.ModrinthUrl)" -ForegroundColor DarkCyan }
         }
     } else { Write-Host "  No verified mods found" -ForegroundColor Gray }
     Write-Host ""
@@ -2079,6 +2125,8 @@ function Write-ScanReport {
             Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "TAMPERED MOD" -ForegroundColor DarkYellow
             Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
             Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "File: $($mod.FileName)" -ForegroundColor White
+            if ($mod.DownloadSource) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Download source: $($mod.DownloadSource)" -ForegroundColor Cyan }
+            if ($mod.SourceURL) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Source URL: $($mod.SourceURL)" -ForegroundColor DarkGray }
             if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta }
             if ($mod.TamperReasons -and @($mod.TamperReasons).Count -gt 0) {
                 Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Detected Issues:" -ForegroundColor Yellow
