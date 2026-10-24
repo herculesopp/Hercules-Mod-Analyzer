@@ -1554,7 +1554,20 @@ $cheatStrings = @(
     "Oh0yWR0MCA","pedroisgay","krloader","K3yAHC","Aut0 H1t Cryst4l M4cr0","D0ubl3 4nch0r","Aut0H1tCyst4l","Pr3Ch3ck",
     "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t","N0 Dglwst0ne","Clk Sim",
     "P34rl C4tch3r","4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t","simulateClicks",
-    "Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
+    "Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y",
+    # Additional signatures imported from the comparison analyzer (specific strings only)
+    "Dqrkis Client (Cracked)", "A.utomatically hit-crystals for you",
+    "Automatically attacks while falling with mace.", "MemoryModuleHelper",
+    "renderModuleList", "moduleToggleAnim", "VIEW_LABEL_MODULES", "VIEW_ICON_MODULES",
+    "modulePreview", "modulesButton", "selectedModule", "ModuleRegistry", "ModModule",
+    "AutoInventoryTotem", "Auto Shield Disabler", "Doomsday", "198m", "prestigeclient.vip", ".prestigeclient.vip0", "DoomsdayClient:::bot),%.R",
+    "DoomsdayClient:::u;<r,7NVce;Ga25", "DoomsdayClient:::eObOiPdFJR 2",
+    "DoomsdayClient:::Wu&XNC]30?3=7", "*.prestigeclient.vip0",
+    "prestigeclient.vip0Y0", "prestige_4.properties",
+    "assets/minecraft/optifine/cit/profile/prestige/", ".psaclient",
+    "198macros.com", "dev.gambleclient", "org.chainlibs.module.impl.modules.crystal",
+    "org.chainlibs.module.impl.modules.blatant", "clientplayerinteractionmanageraccessor",
+    "clientplayerentitymixim", "phantom-refmap", "jnativehook"
 )
 
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -1587,7 +1600,14 @@ $strongNames = @(
     "CatleanClient","AsteriaClient","XenonClient","GypsyClient",
     "Aut0Cryst3l","Aut0Cryst4l","Aut0H1tCryst3l","Aut0H1tCryst4l","Anch0rMacr0",
     "Anch0rM4cr0","4nch0rM4cr0","D0uble4nch0r","D0ubl3Anch0r","S4feAnch0r","S4fe4nch0r",
-    "Aut0T0t3m","H0verT0t3m","L3g1tR3t0t3m","Aut0D0ubl3H4nd","Aut0Stun"
+    "Aut0T0t3m","H0verT0t3m","L3g1tR3t0t3m","Aut0D0ubl3H4nd","Aut0Stun",
+    # Additional named tokens from the comparison analyzer
+    "SilentRotations", "ClientPlayerInteractionManagerAccessor", "ClientPlayerEntityMixim",
+    "ItemExploit", "InvSee", "LagReach", "FastXP", "FastExp", "NoJumpDelay",
+    "NoClip", "FreezePlayer", "ArgonClient", "XenonClient", "CatleanClient",
+    "GypsyClient", "HellionClient", "KryptonClient", "GambleClient",
+    "GhostClient", "CrackedClient", "DqrkisClient", "AutoInventoryTotem",
+    "AutoShieldDisabler", "198Macros", "PrestigeClient", "DoomsdayClient"
 )
 
 $strongNeedleMap = @{}
